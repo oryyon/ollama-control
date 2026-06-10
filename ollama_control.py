@@ -5,7 +5,12 @@ import subprocess
 import threading
 from datetime import datetime
 from pathlib import Path
-from PIL import Image
+import sys
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 
 
 ctk.set_appearance_mode("dark")
@@ -17,13 +22,19 @@ comanda_in_curs = False
 versiune_ollama_cache = "Se verifică versiunea..."
 model_activ_cache = "Se verifică..."
 info_ollama_incarcare = False
-BASE_DIR = Path(__file__).resolve().parent
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    BASE_DIR = Path(sys._MEIPASS)
+else:
+    BASE_DIR = Path(__file__).resolve().parent
 
 
 
 def incarca_imagine_ctk(nume_fisier, size):
     cale = BASE_DIR / nume_fisier
-    return ctk.CTkImage(light_image=Image.open(cale), dark_image=Image.open(cale), size=size)
+    if Image is not None:
+        imagine = Image.open(cale)
+        return ctk.CTkImage(light_image=imagine, dark_image=imagine, size=size)
+    return None
 
 
 
@@ -337,8 +348,8 @@ app = ctk.CTk()
 icon_path = "/home/acer/ollama-control-ui/icon.png"
 ui_uptime_icon = incarca_imagine_ctk("ui_uptime.png", (16, 16))
 ui_status_icon = incarca_imagine_ctk("ui_status.png", (16, 16))
-ui_model_icon = incarca_imagine_ctk("ui_model.png", (16, 16))
-ui_version_icon = incarca_imagine_ctk("ui_version.png", (16, 16))
+ui_model_icon = incarca_imagine_ctk("ui_model.png", (18, 18))
+ui_version_icon = incarca_imagine_ctk("ui_version.png", (18, 18))
 try:
     app.iconphoto(True, tk.PhotoImage(file=icon_path))
 except Exception:
@@ -476,7 +487,9 @@ meta_grid.pack(fill="x", padx=18, pady=14)
 
 model_title = ctk.CTkLabel(
     meta_grid,
-    text="MODEL ACTIV",
+    text="  MODEL ACTIV",
+    image=ui_model_icon,
+    compound="left",
     font=ctk.CTkFont(size=10, weight="bold"),
     text_color="#64748b"
 )
@@ -484,7 +497,9 @@ model_title.grid(row=0, column=0, sticky="w", padx=(0, 24))
 
 version_title = ctk.CTkLabel(
     meta_grid,
-    text="VERSIUNE OLLAMA",
+    text="  VERSIUNE OLLAMA",
+    image=ui_version_icon,
+    compound="left",
     font=ctk.CTkFont(size=10, weight="bold"),
     text_color="#64748b"
 )
