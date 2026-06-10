@@ -446,7 +446,9 @@ uptime_value_label.grid(row=1, column=0, sticky="w", padx=(0, 24), pady=(1, 0))
 
 detail_state_title = ctk.CTkLabel(
     details_grid,
-    text="STATUS",
+    text=" STATUS",
+    image=ui_status_icon,
+    compound="left",
     font=ctk.CTkFont(size=10, weight="bold"),
     text_color="#64748b"
 )
