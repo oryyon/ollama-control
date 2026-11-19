@@ -1,0 +1,10 @@
+{
+  "python.analysis.extraPaths": ["."],
+  "python.analysis.diagnosticMode": "workspace",
+  "python.defaultInterpreterPath": "venv/bin/python",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/build": true,
+    "**/dist": true
+  }
+}

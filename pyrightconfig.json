@@ -1,0 +1,17 @@
+{
+  "include": ["."],
+  "exclude": [
+    "**/__pycache__",
+    "**/venv",
+    "**/build",
+    "**/dist",
+    "**/.git",
+    "**/.continue"
+  ],
+  "extraPaths": ["."],
+  "venvPath": ".",
+  "venv": "venv",
+  "reportMissingImports": "error",
+  "reportMissingModuleSource": "warning",
+  "reportUndefinedVariable": "error"
+}

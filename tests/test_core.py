@@ -150,6 +150,43 @@ class ActiveModelDetectionTests(unittest.TestCase):
         self.assertEqual(modele[0]["name"], "llama3:latest")
 
 
+class SyntaxGuardTests(unittest.TestCase):
+    """Niciun fișier Python nu trebuie să aibă erori de sintaxă.
+
+    Codul sursă nu e versionat în git (doar artefactele de build), iar o
+    editare ratată în editor putea lăsa un fișier stricat pe disc fără ca
+    testele să observe. Compilarea tuturor fișierelor prinde asta imediat.
+    """
+
+    EXCLUDE = {"venv", "build", "dist", ".git", ".continue", "__pycache__"}
+
+    def test_toate_fisierele_python_compileaza(self) -> None:
+        import py_compile
+        import tempfile
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        erori: list[str] = []
+        with tempfile.TemporaryDirectory() as temporar:
+            for cale in sorted(radacina.rglob("*.py")):
+                if any(part in self.EXCLUDE for part in cale.parts):
+                    continue
+                iesire = Path(temporar) / (cale.stem + ".pyc")
+                try:
+                    py_compile.compile(str(cale), doraise=True, cfile=str(iesire))
+                except py_compile.PyCompileError as exc:
+                    erori.append(f"{cale.relative_to(radacina)}: {exc}")
+        self.assertEqual(erori, [], "erori de sintaxă:\n" + "\n".join(erori))
+
+    def test_importurile_rada_cina_sunt_rezolvabile(self) -> None:
+        """Pachetele din rădăcina proiectului se importă dintr-un director."""
+        import importlib
+
+        for pachet in ("config.settings", "core.ollama_models", "services.ollama_info",
+                       "ui.model_actions", "utils.logging_config"):
+            self.assertIsNotNone(importlib.import_module(pachet))
+
+
 class SettingsAndRefreshTests(unittest.TestCase):
     def test_refresh_interval_is_read_dynamically(self) -> None:
         original = settings_config.AUTO_REFRESH_MS
