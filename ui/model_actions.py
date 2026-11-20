@@ -3,7 +3,7 @@ import threading
 import time
 from typing import Callable
 
-from config.settings import settings
+from config.settings import KEEPALIVE_DEFAULT, is_valid_keepalive, settings
 from core.ollama_models import import_to_ollama
 from services.ollama_info import (normalize_model_name, obtine_model_activ,
                                    obtine_modelele_activate, _log_active_model_once,
@@ -28,8 +28,17 @@ def _process_failed_message(name: str, stderr_text: str | None) -> str:
 
 
 def get_ollama_keepalive() -> str:
-    keepalive = str(settings.get("ollama_keepalive", "10m")).strip()
-    return keepalive or "10m"
+    """Durata de keepalive folosită la pornirea unui model.
+
+    Implicitul e 10 minute (`KEEPALIVE_DEFAULT`). O valoare invalidă — de
+    exemplu editată manual în `settings.json` — ar face `ollama run` să
+    eșueze, deci cade pe implicit în loc să treacă mai departe.
+    """
+    keepalive = str(settings.get("ollama_keepalive", KEEPALIVE_DEFAULT)).strip()
+    if not keepalive or not is_valid_keepalive(keepalive):
+        logger.warning("Invalid ollama keepalive %r — using %s", keepalive, KEEPALIVE_DEFAULT)
+        return KEEPALIVE_DEFAULT
+    return keepalive
 
 
 def set_active_model_callback(callback: Callable[[str], None] | None) -> None:

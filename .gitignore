@@ -1,0 +1,29 @@
+# Mediu virtual Python (nu se comite — peste 4000 de fișiere)
+venv/
+.venv/
+
+# Artefacte de build PyInstaller
+build/
+dist/
+*.spec.bak
+
+# Cache Python
+__pycache__/
+*.pyc
+
+# Setări personale (modele recente, contexte) — vezi settings.example.json
+settings.json
+
+# Jurnalele aplicației
+*.log
+nohup.out
+
+# Capturi de ecran temporare (Kazam) și note de lucru
+Kazam_screenshot_*.png
+mesaje
+* copy*.py
+*_copy_*.py
+
+# Instrumente și configurări locale
+.continue/
+.vscode/

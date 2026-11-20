@@ -207,6 +207,55 @@ class SettingsAndRefreshTests(unittest.TestCase):
             self.assertFalse(_is_valid_keepalive(value))
 
 
+class KeepaliveTests(unittest.TestCase):
+    """Durata keepalive (implicit 10 minute) ajunge la `ollama run`."""
+
+    def test_implicitul_este_zece_zece_zece_minute(self) -> None:
+        from ui import model_actions
+
+        with patch.dict(settings_config.settings, {}, clear=True):
+            self.assertEqual(model_actions.get_ollama_keepalive(), "10m")
+            self.assertEqual(settings_config.KEEPALIVE_DEFAULT, "10m")
+
+    def test_valoare_invalida_cade_pe_implicit(self) -> None:
+        """O setare editată manual nu trebuie să ajungă la `ollama run`."""
+        from ui import model_actions
+
+        for valoare in ("abc", "10", "", "   "):
+            with patch.dict(settings_config.settings,
+                            {"ollama_keepalive": valoare}, clear=True):
+                self.assertEqual(model_actions.get_ollama_keepalive(), "10m")
+
+    def test_valoarea_valida_e_pastra(self) -> None:
+        from ui import model_actions
+
+        with patch.dict(settings_config.settings,
+                        {"ollama_keepalive": "30m"}, clear=True):
+            self.assertEqual(model_actions.get_ollama_keepalive(), "30m")
+
+    def test_ollama_run_primeste_flagul_keepalive(self) -> None:
+        from ui import model_actions
+
+        captate: dict[str, list[str]] = {}
+
+        def fake_run(args, **kwargs):
+            captate["args"] = list(args)
+            return subprocess.CompletedProcess(args=args, returncode=0,
+                                               stdout="", stderr="")
+
+        with patch.dict(settings_config.settings,
+                        {"ollama_keepalive": "30m"}, clear=True):
+            with patch.object(model_actions.subprocess, "run", side_effect=fake_run):
+                with patch.object(model_actions, "obtine_modelele_activate",
+                                  return_value=["qwen3:8b"]):
+                    ok, eroare = model_actions.run_model("qwen3:8b")
+
+        self.assertTrue(ok, eroare)
+        argumente = captate["args"]
+        self.assertIn("--keepalive", argumente)
+        self.assertEqual(argumente[argumente.index("--keepalive") + 1], "30m")
+
+
 class ResourceMonitorTests(unittest.TestCase):
     def test_uptime_accepts_local_timezone_abbreviation(self) -> None:
         started = datetime.now() - timedelta(minutes=5)

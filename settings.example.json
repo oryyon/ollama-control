@@ -1,0 +1,8 @@
+{
+  "auto_refresh_interval": 5,
+  "confirm_before_stop": true,
+  "theme": "dark",
+  "ollama_keepalive": "10m",
+  "recent_models": [],
+  "model_contexts": {}
+}

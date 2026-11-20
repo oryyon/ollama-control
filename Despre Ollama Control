@@ -1,0 +1,33 @@
+# Despre Ollama Control
+
+Ollama Control este o aplicație desktop scrisă în Python, cu interfață construită în CustomTkinter, creată pentru administrarea rapidă a unei instanțe locale Ollama. Aplicația oferă un panou grafic simplu pentru utilizatorii care vor să controleze serviciul Ollama și modelele încărcate fără să lucreze permanent din terminal.
+
+## Ce este aplicația
+
+Aplicația funcționează ca un centru de control local pentru:
+
+- starea serviciului Ollama;
+- monitorizarea modelului activ;
+- încărcarea și ejectarea modelelor;
+- importul modelelor din LM Studio în Ollama;
+- configurarea unor opțiuni utile pentru utilizarea de zi cu zi.
+
+Interfața este orientată spre uz practic: afișează informații esențiale despre serviciu, oferă acțiuni rapide și reduce pașii necesari pentru operațiile frecvente.
+
+## Ce poate să facă
+
+- Pornește, oprește și repornește serviciul `ollama` prin integrare cu `systemd`.
+- Afișează starea serviciului și detalii despre ultima activare.
+- Deschide rapid logul aplicației pentru diagnostic și verificări.
+- Detectează și afișează modelul Ollama activ.
+- Încarcă modele Ollama și confirmă activarea lor înainte de a marca operația ca reușită.
+- Ejectează modelul activ direct din interfață.
+- Importă modele din LM Studio în Ollama.
+- Permite creare de variante de modele Ollama cu configurații suplimentare, cum ar fi contextul (`num_ctx`).
+- Permite ștergerea modelelor Ollama din interfața dedicată de administrare.
+- Păstrează setări locale precum intervalul de auto-refresh, confirmarea pentru Stop/Restart, tema și durata `keepalive` pentru modele.
+- Reține modelele utilizate recent pentru acces mai rapid.
+
+## Cui îi este utilă
+
+Ollama Control este utilă pentru utilizatori care rulează modele locale și au nevoie de o interfață desktop clară pentru operare curentă, testare, monitorizare și administrare rapidă a fluxului Ollama fără comenzi repetitive în terminal.
