@@ -229,27 +229,40 @@ class KeepaliveTests(unittest.TestCase):
                         {"ollama_keepalive": "30m"}, clear=True):
             self.assertEqual(model_actions.get_ollama_keepalive(), "30m")
 
-    def test_ollama_run_primeste_flagul_keepalive(self) -> None:
+    def test_incarcarea_trimite_keepalive_la_api(self) -> None:
+        """Keepalive-ul configurat ajunge la cererea de încărcare."""
         from ui import model_actions
 
-        captate: dict[str, list[str]] = {}
+        captate: dict[str, object] = {}
 
-        def fake_run(args, **kwargs):
-            captate["args"] = list(args)
-            return subprocess.CompletedProcess(args=args, returncode=0,
-                                               stdout="", stderr="")
+        def fake_load(model, keepalive="10m", timeout=300.0):
+            captate["model"] = model
+            captate["keepalive"] = keepalive
+            return True, None
 
         with patch.dict(settings_config.settings,
                         {"ollama_keepalive": "30m"}, clear=True):
-            with patch.object(model_actions.subprocess, "run", side_effect=fake_run):
+            with patch.object(model_actions, "load_model", side_effect=fake_load):
                 with patch.object(model_actions, "obtine_modelele_activate",
                                   return_value=["qwen3:8b"]):
                     ok, eroare = model_actions.run_model("qwen3:8b")
 
         self.assertTrue(ok, eroare)
-        argumente = captate["args"]
-        self.assertIn("--keepalive", argumente)
-        self.assertEqual(argumente[argumente.index("--keepalive") + 1], "30m")
+        self.assertEqual(captate["model"], "qwen3:8b")
+        self.assertEqual(captate["keepalive"], "30m")
+
+    def test_incarcarea_fara_server_rupe_graceful(self) -> None:
+        """Dacă serverul nu răspunde, se întoarce o eroare clară."""
+        from ui import model_actions
+
+        def fake_load(model, keepalive="10m", timeout=300.0):
+            return False, "Serverul Ollama nu răspunde."
+
+        with patch.object(model_actions, "load_model", side_effect=fake_load):
+            ok, eroare = model_actions.run_model("qwen3:8b")
+
+        self.assertFalse(ok)
+        self.assertIn("nu răspunde", str(eroare))
 
 
 class ResourceMonitorTests(unittest.TestCase):
@@ -374,6 +387,116 @@ class ModelsPathTests(unittest.TestCase):
         self.assertIsInstance(info["path"], str)
         self.assertIsInstance(info["exists"], bool)
         self.assertIsInstance(info["model_count"], int)
+
+
+class LoadProgressTests(unittest.TestCase):
+    """Progresul de încărcare se calculează din memoria runner-ului."""
+
+    def test_rss_se_citeste_din_proc(self) -> None:
+        import os
+
+        from services.ollama_progress import _rss_bytes
+
+        pid = os.getpid()
+        valoare = _rss_bytes(pid)
+        self.assertGreater(valoare, 0, "RSS-ul propriului proces trebuie să fie lizibil")
+
+    def test_rss_pentru_pid_inexistent_este_zero(self) -> None:
+        from services.ollama_progress import _rss_bytes
+
+        self.assertEqual(_rss_bytes(999999999), 0)
+
+    def test_procentul_este_cuplat_la_99(self) -> None:
+        from pathlib import Path
+
+        from services.ollama_progress import LoadProgressMonitor
+
+        monitor = LoadProgressMonitor(model_size_bytes=1000, models_directory=Path("/tmp"))
+        monitor.peak_bytes = monitor.baseline_bytes + 5000
+        procent = monitor.sample()
+        self.assertLessEqual(procent, 99)
+        self.assertGreaterEqual(procent, 0)
+
+    def test_dimensiunea_blobului_se_determina_dupa_digest(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from services.ollama_progress import _dimensiune_model
+
+        with tempfile.TemporaryDirectory() as temporar:
+            director = Path(temporar)
+            (director / "blobs").mkdir()
+            blob = director / "blobs" / "sha256-abc123"
+            blob.write_bytes(b"x" * 4096)
+
+            self.assertEqual(_dimensiune_model(director, "sha256-abc123"), 4096)
+            self.assertEqual(_dimensiune_model(director, "sha256-lipsa"), 0)
+            self.assertEqual(_dimensiune_model(director, None), 0)
+
+    def test_monitorul_se_oprește_la_stop_event(self) -> None:
+        import threading
+        from pathlib import Path
+
+        from services.ollama_progress import monitor_load_progress
+
+        stop = threading.Event()
+        stop.set()
+        called: list[int] = []
+
+        monitor_load_progress(
+            model_size_bytes=1024,
+            models_directory=Path("/tmp"),
+            on_progress=called.append,
+            stop_event=stop,
+            interval=0.01,
+        )
+        self.assertEqual(called, [])
+
+
+class OllamaApiTests(unittest.TestCase):
+    """Clientul HTTP pentru Ollama trebuie să fie robust la erori."""
+
+    def test_host_respecta_variabila_de_mediu(self) -> None:
+        import os
+
+        from services import ollama_api
+
+        original = os.environ.get("OLLAMA_HOST")
+        try:
+            os.environ["OLLAMA_HOST"] = "127.0.0.1:9999"
+            self.assertEqual(ollama_api._host(), "http://127.0.0.1:9999")
+
+            os.environ["OLLAMA_HOST"] = "http://192.168.1.5:11434"
+            self.assertEqual(ollama_api._host(), "http://192.168.1.5:11434")
+        finally:
+            if original is None:
+                os.environ.pop("OLLAMA_HOST", None)
+            else:
+                os.environ["OLLAMA_HOST"] = original
+
+    def test_load_model_rapoarta_eroare_cand_serverul_nu_exista(self) -> None:
+        import os
+
+        from services import ollama_api
+
+        original = os.environ.get("OLLAMA_HOST")
+        try:
+            # Port închis: serverul nu răspunde.
+            os.environ["OLLAMA_HOST"] = "127.0.0.1:9"
+            succes, mesaj = ollama_api.load_model("qwen3:8b", timeout=5.0)
+            self.assertFalse(succes)
+            self.assertIsNotNone(mesaj)
+        finally:
+            if original is None:
+                os.environ.pop("OLLAMA_HOST", None)
+            else:
+                os.environ["OLLAMA_HOST"] = original
+
+    def test_modele_incarcate_returneaza_lista(self) -> None:
+        from services import ollama_api
+
+        modele = ollama_api.modele_incarcate()
+        self.assertIsInstance(modele, list)
 
 
 class HelperTests(unittest.TestCase):

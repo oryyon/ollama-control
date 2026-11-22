@@ -1,4 +1,5 @@
 import threading
+import time
 import tkinter as tk
 import customtkinter as ctk
 import weakref
@@ -48,6 +49,7 @@ class ModelWindow:
     PROGRESS_TEXT = ("#1e293b", "#e2e8f0")
     PROGRESS_ACCENT = ("#2563eb", "#38bdf8")
     PROGRESS_TRACK = ("#dbeafe", "#1e293b")
+    PROGRESS_DETAIL_TEXT = ("#64748b", "#94a3b8")
 
     def __init__(self, root: ctk.CTk) -> None:
         self.root = root
@@ -210,7 +212,12 @@ class ModelWindow:
     def _on_select(self, name: str) -> None:
         size_gb = self._get_model_size_gb(name)
         logger.info("Model Loader select clicked: name=%s size_gb=%.2f", name, size_gb)
-        self._show_progress("Se așteaptă confirmarea Ollama pentru încărcarea modelului...", determinate=False)
+        self.model_size_bytes = int(size_gb * (1024 ** 3))
+        self.progress_started_at = time.monotonic()
+        self._show_progress(
+            f"Se încarcă modelul '{name}' în memorie...",
+            determinate=True,
+        )
         threading.Thread(
             target=lambda: self._run_ollama_model(name, size_gb),
             daemon=True,
@@ -296,7 +303,7 @@ class ModelWindow:
         else:
             self._show_error(f"Eroare la ștergerea modelului '{deleted_name}'.")
 
-    def _show_progress(self, text: str = "Se încarcă modelul...", determinate: bool = False) -> None:
+    def _show_progress(self, text: str = "Se încarcă modelul...", determinate: bool = True) -> None:
         # Golește containerul înainte de a adăuga elemente noi
         for child in self.progress_container.winfo_children():
             child.destroy()
@@ -320,7 +327,7 @@ class ModelWindow:
 
         self.progress_pct_label = ctk.CTkLabel(
             self.progress_frame, text="0%",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(size=16, weight="bold"),
             text_color=self.PROGRESS_ACCENT,
         )
         self.progress_pct_label.pack(pady=(0, 3))
@@ -339,15 +346,28 @@ class ModelWindow:
         else:
             self.progress_bar.set(0)
 
+        # Detaliu textual: câți MB au fost încărcați în RAM.
+        self.progress_detail_label = ctk.CTkLabel(
+            self.progress_frame, text="",
+            font=ctk.CTkFont(size=11),
+            text_color=self.PROGRESS_DETAIL_TEXT,
+        )
+        self.progress_detail_label.pack(pady=(0, 4))
+
         self._set_buttons_enabled(False)
 
     def _update_progress(self, pct: int) -> None:
+        """Actualizează bara de progres cu procentul real de încărcare."""
         def _do_update() -> None:
             try:
                 if hasattr(self, "progress_bar") and self.progress_bar.winfo_exists():
-                    self.progress_bar.set(pct / 100)
+                    self.progress_bar.set(max(0, min(pct, 100)) / 100)
                 if hasattr(self, "progress_pct_label") and self.progress_pct_label.winfo_exists():
                     self.progress_pct_label.configure(text=f"{pct}%")
+                if hasattr(self, "progress_detail_label") and self.progress_detail_label.winfo_exists():
+                    self.progress_detail_label.configure(
+                        text=self._detalii_incarcare(pct)
+                    )
             except Exception:
                 pass
 
@@ -355,6 +375,27 @@ class ModelWindow:
             self.win.after(0, _do_update)
         except Exception:
             pass
+
+    def _detalii_incarcare(self, pct: int) -> str:
+        """Detaliu textual despre încărcare: MB încărcați și viteză."""
+        if not hasattr(self, "progress_started_at"):
+            self.progress_started_at = time.monotonic()
+
+        if not hasattr(self, "model_size_bytes") or not self.model_size_bytes:
+            return "Se încarcă modelul în memorie..."
+
+        incarcati = int(self.model_size_bytes * pct / 100)
+        timp = max(time.monotonic() - self.progress_started_at, 0.1)
+
+        if pct <= 0:
+            return "Se citește modelul de pe disc..."
+
+        viteza_mb_s = incarcati / (1024 * 1024) / timp
+        return (
+            f"{incarcati // (1024 * 1024)} MB din "
+            f"{self.model_size_bytes // (1024 * 1024)} MB "
+            f"({viteza_mb_s:.0f} MB/s)"
+        )
 
     def _hide_progress(self) -> None:
         try:

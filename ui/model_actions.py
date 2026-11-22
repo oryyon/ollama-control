@@ -4,6 +4,8 @@ import time
 from typing import Callable
 
 from config.settings import KEEPALIVE_DEFAULT, is_valid_keepalive, settings
+from core.ollama_models import _parse_size_to_gb, get_ollama_models
+from services.ollama_api import load_model
 from services.ollama_info import (normalize_model_name, obtine_model_activ,
                                    obtine_modelele_activate, _log_active_model_once,
                                    _log_no_active_model_once)
@@ -13,17 +15,14 @@ active_model_callback: Callable[[str], None] | None = None
 OLLAMA_RUN_CONFIRMATION_TIMEOUT_SECONDS = 90.0
 OLLAMA_RUN_POST_EXIT_GRACE_SECONDS = 20.0
 
+#: Timpul maxim pentru încărcarea unui model (secunde). Se mărește
+#: proporțional cu dimensiunea modelului, dar are o limită inferioară
+#: generoasă pentru modelele mari încărcate de pe disc.
+OLLAMA_LOAD_TIMEOUT_SECONDS = 300.0
+
 
 def _activation_timeout_message(name: str) -> str:
     return f"Confirmarea Ollama pentru modelul '{name}' a expirat. Modelul poate porni mai lent sau Ollama nu l-a confirmat încă."
-
-
-def _process_failed_message(name: str, stderr_text: str | None) -> str:
-    details = (stderr_text or "").strip().splitlines()
-    last_line = details[-1] if details else ""
-    if last_line:
-        return f"Procesul Ollama pentru modelul '{name}' a eșuat imediat: {last_line}"
-    return f"Procesul Ollama pentru modelul '{name}' a eșuat imediat înainte de confirmarea activării."
 
 
 def get_ollama_keepalive() -> str:
@@ -121,68 +120,101 @@ def _is_expected_model_active(name: str) -> tuple[bool, str]:
     return False, f"Model activ: {modele[0]}"
 
 
+def _dimensiune_model_in_octeti(name: str) -> int:
+    """Dimensiunea modelului în octeți, din lista raportată de Ollama."""
+    try:
+        modele, success = get_ollama_models()
+    except Exception:
+        logger.exception("Failed to read the Ollama model list for the load progress")
+        return 0
+
+    if not success:
+        return 0
+
+    for model in modele:
+        if model["name"] != name:
+            continue
+        return int(_parse_size_to_gb(model["size"]) * (1024 ** 3))
+
+    return 0
+
+
+def _monitor_progress(
+    name: str,
+    size_gb: float,
+    progress_callback: Callable[[int], None],
+    stop_event: threading.Event,
+) -> None:
+    """Urmărește și raportează procentul real de încărcare a modelului."""
+    try:
+        from pathlib import Path
+
+        from services.ollama_paths import get_models_directory
+        from services.ollama_progress import monitor_load_progress
+
+        dimensiune = _dimensiune_model_in_octeti(name)
+        if dimensiune <= 0 and size_gb > 0:
+            dimensiune = int(size_gb * (1024 ** 3))
+
+        monitor_load_progress(
+            model_size_bytes=dimensiune,
+            models_directory=Path(get_models_directory()),
+            on_progress=progress_callback,
+            stop_event=stop_event,
+        )
+    except Exception:
+        logger.exception("The Ollama load progress monitor stopped unexpectedly")
+
+
 def run_model(name: str, progress_callback: Callable[[int], None] | None = None, size_gb: float = 0.0) -> tuple[bool, str | None]:
-    """Pornește un model Ollama."""
+    """Încarcă un model Ollama și îl menține activ în memorie."""
     keepalive = get_ollama_keepalive()
     logger.info("Select requested for Ollama model=%s size_gb=%.2f keepalive=%s", name, size_gb, keepalive)
-    process_started = threading.Event()
-    process_failed = threading.Event()
-    process_result: subprocess.CompletedProcess[str] | None = None
+    progress_stop = threading.Event()
+    rezultat_incarcare: dict[str, object] = {}
 
-    def _run() -> None:
-        nonlocal process_result
+    # Timpul maxim de încărcare: proportional cu dimensiunea modelului,
+    # dar cu o limită inferioară generoasă pentru modelele mari.
+    timeout = max(size_gb * 30.0, OLLAMA_LOAD_TIMEOUT_SECONDS)
+
+    def _incarca() -> None:
         try:
-            process_result = subprocess.run(
-                ["ollama", "run", name, "", "--keepalive", keepalive],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            process_started.set()
-            logger.info(
-                "Completed non-interactive 'ollama run' for model=%s returncode=%s keepalive=%s",
-                name,
-                process_result.returncode if process_result else "?",
-                keepalive,
-            )
+            succes, mesaj = load_model(name, keepalive=keepalive, timeout=timeout)
+            rezultat_incarcare["succes"] = succes
+            rezultat_incarcare["mesaj"] = mesaj
         except Exception:
-            process_failed.set()
-            logger.exception("Failed to start 'ollama run' for model=%s", name)
+            rezultat_incarcare["succes"] = False
+            rezultat_incarcare["mesaj"] = f"Eroare la încărcarea modelului '{name}'."
+            logger.exception("Unexpected error while loading the model %s", name)
 
-    def _simulate_progress() -> None:
-        return
-
-    run_thread = threading.Thread(target=_run, daemon=True)
+    run_thread = threading.Thread(target=_incarca, daemon=True)
     run_thread.start()
 
     if progress_callback:
-        progress_thread = threading.Thread(target=_simulate_progress, daemon=True)
+        # Ollama nu raportează progres prin API, deci urmărim creșterea
+        # memoriei runner-ului — sursa reală a procentului de încărcare.
+        progress_thread = threading.Thread(
+            target=_monitor_progress,
+            args=(name, size_gb, progress_callback, progress_stop),
+            daemon=True,
+        )
         progress_thread.start()
 
     run_thread.join()
+    progress_stop.set()
 
-    if process_failed.is_set() or not process_started.is_set():
-        logger.error("Model load failed before startup confirmation for model=%s", name)
-        return False, f"Ollama nu a putut porni procesul pentru modelul '{name}'."
+    succes = bool(rezultat_incarcare.get("succes"))
+    mesaj = rezultat_incarcare.get("mesaj")
 
-    if process_result is None:
-        logger.error("Model load finished without a process result for model=%s", name)
-        return False, f"Ollama nu a furnizat un rezultat pentru modelul '{name}'."
-
-    if process_result.returncode != 0:
-        logger.error(
-            "Non-interactive 'ollama run' failed for model=%s returncode=%s stderr=%s",
-            name,
-            process_result.returncode,
-            (process_result.stderr or "").strip(),
-        )
-        return False, _process_failed_message(name, process_result.stderr)
+    if not succes:
+        logger.error("Model load failed for %s: %s", name, mesaj)
+        return False, str(mesaj) if mesaj else f"Ollama nu a putut încărca modelul '{name}'."
 
     wait_deadline = time.monotonic() + max(size_gb * 8, OLLAMA_RUN_CONFIRMATION_TIMEOUT_SECONDS)
     post_exit_deadline = time.monotonic() + OLLAMA_RUN_POST_EXIT_GRACE_SECONDS
     last_logged_model_text: str | None = None
     logger.info(
-        "Waiting for Ollama activation confirmation after successful run completion: model=%s grace_seconds=%.1f timeout_seconds=%.1f",
+        "Waiting for Ollama activation confirmation after successful load: model=%s grace_seconds=%.1f timeout_seconds=%.1f",
         name,
         OLLAMA_RUN_POST_EXIT_GRACE_SECONDS,
         max(size_gb * 8, OLLAMA_RUN_CONFIRMATION_TIMEOUT_SECONDS),
@@ -201,9 +233,8 @@ def run_model(name: str, progress_callback: Callable[[int], None] | None = None,
 
         if time.monotonic() >= post_exit_deadline:
             logger.error(
-                "Model was still not active after successful run completion grace period: model=%s returncode=%s",
+                "Model was still not active after a successful load: model=%s",
                 name,
-                process_result.returncode,
             )
             return False, _activation_timeout_message(name)
 
