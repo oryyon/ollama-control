@@ -23,6 +23,7 @@ Aplicația este dedicată exclusiv Ollama. Nu interacționează cu alte servere 
 - Detectează și afișează modelul Ollama activ.
 - Încarcă modele Ollama și confirmă activarea lor înainte de a marca operația ca reușită.
 - Ejectează modelul activ direct din interfață.
+- Arată calea exactă unde serverul Ollama descarcă modelele, cu opțiuni de copiere în clipboard și deschidere a folderului.
 - Permite creare de variante de modele Ollama cu configurații suplimentare, cum ar fi contextul (`num_ctx`).
 - Permite ștergerea modelelor Ollama din interfața dedicată de administrare.
 - Păstrează setări locale precum intervalul de auto-refresh, confirmarea pentru Stop/Restart, tema și durata `keepalive` pentru modele.

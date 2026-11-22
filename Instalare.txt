@@ -1,0 +1,4 @@
+sudo apt install ./release/ollama-control_1.0.0_amd64.deb
+# sau
+./release/ollama-control-x86_64.AppImage
+

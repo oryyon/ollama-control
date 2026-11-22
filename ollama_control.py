@@ -16,15 +16,18 @@ aplica_tema()
 
 state, widgets = build_main_window(app)
 
-set_active_model_callback(
-	lambda name: app.after(
-		0,
-		lambda: (
-			update_active_model(state, widgets, name, app),
-			notify_model_loader_active_model(name),
-		),
-	)
-)
+def _pe_model_activ(name: str) -> None:
+    """Actualizează interfața când Ollama confirmă modelul activ."""
+    app.after(
+        0,
+        lambda: (
+            update_active_model(state, widgets, name, app),
+            notify_model_loader_active_model(name),
+        ),
+    )
+
+
+set_active_model_callback(_pe_model_activ)
 
 actualizeaza_stare(state, widgets, app)
 programeaza_auto_refresh(app, widgets)

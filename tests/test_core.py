@@ -336,6 +336,46 @@ class SettingsLocationTests(unittest.TestCase):
                 settings_config.SETTINGS_PATH = original_path
 
 
+class ModelsPathTests(unittest.TestCase):
+    """Calea modelelor se detectează din starea reală a serverului."""
+
+    def test_manifestul_e_gasit_dupa_nume_sau_tag(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from services.ollama_paths import _manifest_pentru
+
+        with tempfile.TemporaryDirectory() as temporar:
+            director = Path(temporar)
+            baza = director / "manifests" / "registry.ollama.ai" / "library"
+            (baza / "qwen3").mkdir(parents=True)
+            (baza / "qwen3" / "8b").write_text("x")
+            (baza / "llama3").mkdir(parents=True)
+            (baza / "llama3" / "latest").write_text("x")
+
+            self.assertIsNotNone(_manifest_pentru(director, "qwen3:8b"))
+            self.assertIsNotNone(_manifest_pentru(director, "llama3:latest"))
+            self.assertIsNotNone(_manifest_pentru(director, "llama3"))
+            self.assertIsNone(_manifest_pentru(director, "inexistent:1b"))
+
+    def test_directorul_de_modele_este_intotdeauna_ales(self) -> None:
+        from services.ollama_paths import get_models_directory
+
+        cale = get_models_directory()
+        self.assertTrue(str(cale))
+        self.assertTrue(cale.is_absolute())
+
+    def test_info_inclusa_caile_si_numarul_de_modele(self) -> None:
+        from services.ollama_paths import get_models_directory_info
+
+        info = get_models_directory_info()
+        for cheie in ("path", "exists", "model_count"):
+            self.assertIn(cheie, info)
+        self.assertIsInstance(info["path"], str)
+        self.assertIsInstance(info["exists"], bool)
+        self.assertIsInstance(info["model_count"], int)
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")

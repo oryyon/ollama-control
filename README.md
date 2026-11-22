@@ -18,6 +18,7 @@ Aplicatie desktop Python bazata pe CustomTkinter pentru controlul serviciului lo
 - monitorizare consum RAM si, daca exista GPU NVIDIA, VRAM;
 - incarcare model Ollama cu confirmare reala din backend;
 - eject model activ;
+- afisarea caii de descarcare a modelelor, cu optiune de copiere si deschidere;
 - creare modele derivate cu `PARAMETER num_ctx`;
 - stergere modele Ollama;
 - setari persistente pentru tema, auto-refresh, confirmare stop/restart si `keepalive`;

@@ -1,12 +1,26 @@
 import subprocess
 import threading
 import time
-from typing import Callable
+from typing import Callable, TypedDict
 
 from utils.logging_config import logger
 from utils.helpers import extract_params
 
-_ollama_models_cache: list[dict[str, str | None]] | None = None
+
+class ModelEntry(TypedDict):
+    """Un model Ollama, așa cum apare în lista aplicației.
+
+    Folosim un `TypedDict` în locul unui `dict[str, str | None]` ca să fie
+    clar ce câmpuri există mereu: `name`, `size` și `params` sunt întotdeauna
+    șiruri, chiar dacă valoarea este „N/A" sau un gol.
+    """
+
+    name: str
+    size: str
+    params: str
+
+
+_ollama_models_cache: list[ModelEntry] | None = None
 _ollama_models_cache_time: float = 0
 _ollama_models_cache_lock = threading.Lock()
 OLLAMA_CACHE_TTL: int = 60  # secunde
@@ -33,13 +47,13 @@ def is_ollama_server_running() -> bool:
         return False
 
 
-def _parse_ollama_models_output(output: str) -> list[dict[str, str | None]]:
+def _parse_ollama_models_output(output: str) -> list[ModelEntry]:
     """Parsează output-ul tabelului ``ollama list`` în structura aplicației."""
     lines = output.splitlines()
     if not lines:
         return []
 
-    models: list[dict[str, str | None]] = []
+    models: list[ModelEntry] = []
     for line in lines[1:]:
         parts = line.split()
         if not parts:
@@ -67,13 +81,13 @@ def _parse_ollama_models_output(output: str) -> list[dict[str, str | None]]:
     return models
 
 
-def _modele_din_cache() -> list[dict[str, str | None]]:
+def _modele_din_cache() -> list[ModelEntry]:
     """Ultima listă de modele cunoscută (evită golirea listei la timeout)."""
     with _ollama_models_cache_lock:
         return list(_ollama_models_cache or [])
 
 
-def get_ollama_models() -> tuple[list[dict[str, str | None]], bool]:
+def get_ollama_models() -> tuple[list[ModelEntry], bool]:
     """Returnează (modele, success). Dacă success=False, a fost o eroare de conectare."""
     global _ollama_models_cache, _ollama_models_cache_time
 

@@ -9,7 +9,7 @@ class ModelConfigDialog:
 
     CONTEXT_OPTIONS = [2048, 4096, 8192, 16384, 32768, 65536, 128000]
 
-    def __init__(self, parent: ctk.CTk, model_name: str, on_apply=None) -> None:
+    def __init__(self, parent: ctk.CTkToplevel, model_name: str, on_apply=None) -> None:
         self.model_name = model_name
         self.on_apply = on_apply
         self.result: int | None = None

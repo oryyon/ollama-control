@@ -152,9 +152,12 @@ def deschide_setari(app, widgets) -> None:
         global settings_window
         if settings_window is not None and settings_window.winfo_exists():
             try:
+                # Dezactivăm doar widget-urile interactive: etichetele și
+                # ramurile CustomTkinter nu acceptă parametrul `state`.
                 for child in settings_window.winfo_children():
                     try:
-                        if hasattr(child, 'configure'):
+                        if isinstance(child, (ctk.CTkButton, ctk.CTkEntry,
+                                              ctk.CTkOptionMenu, ctk.CTkSwitch)):
                             child.configure(state="disabled")
                     except Exception:
                         pass

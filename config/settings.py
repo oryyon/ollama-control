@@ -8,8 +8,13 @@ from typing import Any
 
 import customtkinter as ctk
 
-if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-    BASE_DIR = Path(sys._MEIPASS)
+#: Directorul temporar în care PyInstaller extrage resursele (doar în build).
+#: Atributul există doar la rularea din executabilul înglobat, de aceea îl
+#: citim dinamic — `sys._MEIPASS` nu este un atribut cunoscut de tipizator.
+_MEIPASS: str | None = getattr(sys, "_MEIPASS", None)
+
+if getattr(sys, "frozen", False) and _MEIPASS:
+    BASE_DIR = Path(_MEIPASS)
     APP_DIR = Path(sys.executable).resolve().parent
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent

@@ -1,9 +1,11 @@
 import threading
+from typing import Any
 
 try:
     from plyer import notification  # type: ignore
     PLYER_AVAILABLE = True
 except ImportError:
+    notification = None  # type: ignore[assignment]
     PLYER_AVAILABLE = False
 
 notification_after_id: int | None = None
@@ -18,7 +20,7 @@ def _widget_exists(widget) -> bool:
 
 def notificare_desktop(titlu: str, mesaj: str) -> None:
     """Afișează notificare desktop nativă dacă plyer e disponibil."""
-    if PLYER_AVAILABLE:
+    if PLYER_AVAILABLE and notification is not None:
         try:
             notification.notify(
                 title=titlu,
@@ -30,7 +32,7 @@ def notificare_desktop(titlu: str, mesaj: str) -> None:
             pass
 
 
-def arata_notificare(text: str, tip: str = "info", app=None, notification_frame=None, notification_label=None) -> None:
+def arata_notificare(text: str, tip: str = "info", app: Any = None, notification_frame: Any = None, notification_label: Any = None) -> None:
     global notification_after_id
 
     if not _widget_exists(app) or not _widget_exists(notification_frame) or not _widget_exists(notification_label):

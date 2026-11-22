@@ -10,6 +10,7 @@ from ui.model_actions import (
     run_model,
 )
 from ui.model_config_dialog import ModelConfigDialog
+from ui.model_path_dialog import ModelPathDialog
 from core.model_config import create_model_with_context_threaded
 from core.ollama_models import delete_ollama_model
 from config.settings import settings
@@ -37,6 +38,8 @@ class ModelWindow:
     HEADER_BUTTON_HOVER = ("#3b82f6", "#1d4ed8")
     CANCEL_BUTTON_FG = ("#ef4444", "#dc2626")
     CANCEL_BUTTON_HOVER = ("#dc2626", "#b91c1c")
+    PATH_BUTTON_FG = ("#0f766e", "#115e59")
+    PATH_BUTTON_HOVER = ("#0d9488", "#0f766e")
     BUTTON_TEXT = ("#ffffff", "#ffffff")
     BUTTON_DISABLED_FG = ("#cbd5e1", "#334155")
     BUTTON_DISABLED_TEXT = ("#64748b", "#94a3b8")
@@ -90,6 +93,17 @@ class ModelWindow:
         )
         self.source_button.pack(side="left", padx=10)
 
+        self.path_button = ctk.CTkButton(
+            switch,
+            text="📂 Calea modelelor",
+            fg_color=self.PATH_BUTTON_FG,
+            hover_color=self.PATH_BUTTON_HOVER,
+            text_color=self.BUTTON_TEXT,
+            text_color_disabled=self.BUTTON_DISABLED_TEXT,
+            command=self._show_models_path
+        )
+        self.path_button.pack(side="left", padx=10)
+
         self.cancel_button = ctk.CTkButton(
             switch,
             text="Închide",
@@ -139,14 +153,26 @@ class ModelWindow:
     def _apply_mode_button_states(self) -> None:
         self._style_header_buttons_for_mode()
 
+    def _show_models_path(self) -> None:
+        """Deschide dialogul cu calea de descărcare a modelelor."""
+        logger.info("Model Loader: user requested the Ollama models path")
+        try:
+            ModelPathDialog(self.win)
+        except Exception:
+            logger.exception("Failed to open the models path dialog")
+
     def _set_buttons_enabled(self, enabled: bool) -> None:
         if enabled:
             self._apply_mode_button_states()
+            self._style_button(self.path_button, self.PATH_BUTTON_FG, self.PATH_BUTTON_HOVER, self.BUTTON_TEXT)
+            self.path_button.configure(state=tk.NORMAL)
             self._style_button(self.cancel_button, self.CANCEL_BUTTON_FG, self.CANCEL_BUTTON_HOVER, self.BUTTON_TEXT)
             self.cancel_button.configure(state=tk.NORMAL)
         else:
             self._style_button(self.source_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
             self.source_button.configure(state=tk.DISABLED)
+            self._style_button(self.path_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
+            self.path_button.configure(state=tk.DISABLED)
             self._style_button(self.cancel_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
             self.cancel_button.configure(state=tk.DISABLED)
 

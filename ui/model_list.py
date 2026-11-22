@@ -3,7 +3,7 @@ import customtkinter as ctk
 import queue
 import threading
 
-from core.ollama_models import get_ollama_models
+from core.ollama_models import ModelEntry, get_ollama_models
 from services.ollama_info import normalize_model_name
 from utils.logging_config import logger
 
@@ -37,12 +37,14 @@ class ModelList:
 
     @staticmethod
     def _remember_button_style(button: ctk.CTkButton, fg_color, hover_color) -> None:
-        button._enabled_fg_color = fg_color
-        button._enabled_hover_color = hover_color
+        # `CTkButton` nu declară aceste atribute, deci le setăm dinamic.
+        # `setattr` evită și eroarea de tipizare a analizatorului static.
+        setattr(button, "_enabled_fg_color", fg_color)
+        setattr(button, "_enabled_hover_color", hover_color)
 
-    def __init__(self, parent: ctk.CTkFrame, on_select=None, on_config=None, on_delete=None) -> None:
+    def __init__(self, parent: ctk.CTkBaseClass | ctk.CTkToplevel, on_select=None, on_config=None, on_delete=None) -> None:
         self.parent = parent
-        self.all_models: list[dict[str, str | None]] = []
+        self.all_models: list[ModelEntry] = []
         self.on_select = on_select
         self.on_config = on_config
         self.on_delete = on_delete
@@ -220,7 +222,7 @@ class ModelList:
             return name
         return f"{name[:self.NAME_DISPLAY_MAX_CHARS - 1]}…"
 
-    def add_row(self, name: str, size: str | None, params: str | None, command=None, config_command=None, delete_command=None, is_active: bool = False) -> None:
+    def add_row(self, name: str, size: str, params: str, command=None, config_command=None, delete_command=None, is_active: bool = False) -> None:
         frame_kwargs = {
             "fg_color": self.ACTIVE_ROW_FG if is_active else self.DEFAULT_ROW_FG,
             "border_width": 1 if is_active else 0,
@@ -372,7 +374,7 @@ class ModelList:
 
         callback(models, success)
 
-    def on_models_loaded(self, models: list, success: bool) -> None:
+    def on_models_loaded(self, models: list[ModelEntry], success: bool) -> None:
         if not self.list_frame.winfo_exists():
             return
         self.hide_loading()
