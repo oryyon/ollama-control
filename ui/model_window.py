@@ -8,7 +8,6 @@ from ui.model_actions import (
     set_active_model_callback,
     eject_model,
     run_model,
-    import_and_run_lmstudio,
 )
 from ui.model_config_dialog import ModelConfigDialog
 from core.model_config import create_model_with_context_threaded
@@ -50,20 +49,17 @@ class ModelWindow:
     def __init__(self, root: ctk.CTk) -> None:
         self.root = root
         self.win = ctk.CTkToplevel(root)
-        self.win.title("Model Loader")
+        self.win.title("Modele Ollama")
         self.win.geometry("750x520")
         _open_model_windows.add(self)
-
-        self.mode = tk.StringVar(value="lmstudio")
-        self.active_mode_button: ctk.CTkButton | None = None
 
         self._build_header()
         self._build_progress_container()
         self.model_list = ModelList(
             self.win,
             on_select=self._on_select,
-            on_config=self._on_config_model if self.mode.get() == "ollama" else None,
-            on_delete=self._on_delete_model if self.mode.get() == "ollama" else None,
+            on_config=self._on_config_model,
+            on_delete=self._on_delete_model,
         )
         self._apply_mode_button_states()
         self.load_models()
@@ -75,7 +71,7 @@ class ModelWindow:
     def _build_header(self) -> None:
         title = ctk.CTkLabel(
             self.win,
-            text="Selectează sursa modelelor",
+            text="Modelele disponibile în Ollama",
             font=ctk.CTkFont(size=18, weight="bold")
         )
         title.pack(pady=10)
@@ -83,31 +79,20 @@ class ModelWindow:
         switch = ctk.CTkFrame(self.win, fg_color="transparent")
         switch.pack(pady=10)
 
-        self.lm_button = ctk.CTkButton(
-            switch,
-            text="LM Studio",
-            fg_color=self.HEADER_BUTTON_FG,
-            hover_color=self.HEADER_BUTTON_HOVER,
-            text_color=self.BUTTON_TEXT,
-            text_color_disabled=self.BUTTON_SELECTED_TEXT,
-            command=lambda: self.switch("lmstudio")
-        )
-        self.lm_button.pack(side="left", padx=10)
-
-        self.ollama_button = ctk.CTkButton(
+        self.source_button = ctk.CTkButton(
             switch,
             text="Ollama",
-            fg_color=self.HEADER_BUTTON_FG,
-            hover_color=self.HEADER_BUTTON_HOVER,
-            text_color=self.BUTTON_TEXT,
+            fg_color=self.BUTTON_SELECTED_FG,
+            hover_color=self.BUTTON_SELECTED_FG,
+            text_color=self.BUTTON_SELECTED_TEXT,
             text_color_disabled=self.BUTTON_SELECTED_TEXT,
-            command=lambda: self.switch("ollama")
+            state=tk.DISABLED,
         )
-        self.ollama_button.pack(side="left", padx=10)
+        self.source_button.pack(side="left", padx=10)
 
         self.cancel_button = ctk.CTkButton(
             switch,
-            text="Anulează",
+            text="Închide",
             fg_color=self.CANCEL_BUTTON_FG,
             hover_color=self.CANCEL_BUTTON_HOVER,
             text_color=self.BUTTON_TEXT,
@@ -131,13 +116,14 @@ class ModelWindow:
         button.configure(fg_color=fg_color, hover_color=hover_color, text_color=text_color)
 
     def _style_header_buttons_for_mode(self) -> None:
-        for mode_name, button in {"lmstudio": self.lm_button, "ollama": self.ollama_button}.items():
-            if self.mode.get() == mode_name:
-                self._style_button(button, self.BUTTON_SELECTED_FG, self.BUTTON_SELECTED_FG, self.BUTTON_SELECTED_TEXT)
-                button.configure(state=tk.DISABLED)
-            else:
-                self._style_button(button, self.HEADER_BUTTON_FG, self.HEADER_BUTTON_HOVER, self.BUTTON_TEXT)
-                button.configure(state=tk.NORMAL)
+        """Singura sursă de modele este Ollama — butonul rămâne evidențiat."""
+        self._style_button(
+            self.source_button,
+            self.BUTTON_SELECTED_FG,
+            self.BUTTON_SELECTED_FG,
+            self.BUTTON_SELECTED_TEXT,
+        )
+        self.source_button.configure(state=tk.DISABLED)
 
     def _style_list_buttons(self, enabled: bool) -> None:
         for button in self._iter_buttons(self.model_list.list_frame):
@@ -159,43 +145,20 @@ class ModelWindow:
             self._style_button(self.cancel_button, self.CANCEL_BUTTON_FG, self.CANCEL_BUTTON_HOVER, self.BUTTON_TEXT)
             self.cancel_button.configure(state=tk.NORMAL)
         else:
-            self._style_button(self.lm_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
-            self.lm_button.configure(state=tk.DISABLED)
-            self._style_button(self.ollama_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
-            self.ollama_button.configure(state=tk.DISABLED)
+            self._style_button(self.source_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
+            self.source_button.configure(state=tk.DISABLED)
             self._style_button(self.cancel_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
             self.cancel_button.configure(state=tk.DISABLED)
 
         self._style_list_buttons(enabled)
 
-    def switch(self, mode: str) -> None:
-        logger.info("Model Loader switched to source=%s", mode)
-        if mode == "lmstudio":
-            self.mode.set(mode)
-            self.active_mode_button = self.lm_button
-            self.model_list.on_config = None
-            self.model_list.on_delete = None
-        else:
-            self.mode.set(mode)
-            self.active_mode_button = self.ollama_button
-            self.model_list.on_config = self._on_config_model
-            self.model_list.on_delete = self._on_delete_model
-
-        self._apply_mode_button_states()
-        self.load_models()
-
     def load_models(self) -> None:
-        if self.mode.get() == "lmstudio":
-            self.model_list.load_models("lmstudio", None)
-        else:
-            self.model_list.load_models("ollama", self._on_ollama_loaded)
+        self.model_list.load_models(self._on_ollama_loaded)
 
     def _on_ollama_loaded(self, models, success) -> None:
         self.win.after(0, lambda: self._finish_ollama_loaded(models, success))
 
     def _finish_ollama_loaded(self, models, success) -> None:
-        if self.mode.get() != "ollama":
-            return
         self.model_list.on_models_loaded(models, success)
         if success:
             self._refresh_active_model_indicator()
@@ -218,22 +181,14 @@ class ModelWindow:
             return
         self.win.after(0, lambda: self.model_list.set_active_model(model_name))
 
-    def _on_select(self, name: str, path: str | None) -> None:
+    def _on_select(self, name: str) -> None:
         size_gb = self._get_model_size_gb(name)
-        logger.info("Model Loader select clicked: source=%s name=%s path=%s size_gb=%.2f", self.mode.get(), name, path, size_gb)
-        if self.mode.get() == "lmstudio":
-            self._show_progress("Se importă modelul în Ollama...", determinate=True)
-            import_and_run_lmstudio(
-                name, path, self._on_import_done,
-                progress_callback=self._update_progress,
-                size_gb=size_gb
-            )
-        else:
-            self._show_progress("Se așteaptă confirmarea Ollama pentru încărcarea modelului...", determinate=False)
-            threading.Thread(
-                target=lambda: self._run_ollama_model(name, size_gb),
-                daemon=True,
-            ).start()
+        logger.info("Model Loader select clicked: name=%s size_gb=%.2f", name, size_gb)
+        self._show_progress("Se așteaptă confirmarea Ollama pentru încărcarea modelului...", determinate=False)
+        threading.Thread(
+            target=lambda: self._run_ollama_model(name, size_gb),
+            daemon=True,
+        ).start()
 
     def _run_ollama_model(self, name: str, size_gb: float) -> None:
         try:
@@ -266,20 +221,6 @@ class ModelWindow:
                 if size_str and size_str != "N/A":
                     return _parse_size_to_gb(size_str)
         return 0.0
-
-    def _on_import_done(self, success: bool, model_name: str) -> None:
-        try:
-            self.win.after(0, lambda: self._finish_import_done(success, model_name))
-        except Exception:
-            pass
-
-    def _finish_import_done(self, success: bool, model_name: str) -> None:
-        logger.info("Model Loader LM Studio flow finished: name=%s success=%s", model_name, success)
-        self._hide_progress()
-        if not success:
-            self._show_error(f"Importul modelului '{model_name}' a eșuat.")
-            return
-        self.safe_destroy()
 
     def _on_config_model(self, name: str) -> None:
         def on_apply(model_name: str, num_ctx: int) -> None:

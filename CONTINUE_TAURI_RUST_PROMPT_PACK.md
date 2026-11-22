@@ -5,8 +5,8 @@
 Aceste prompturi sunt scrise pentru:
 
 - VS Code + Continue
-- LM Studio
-- `qwen2.5-coder-7b-instruct`
+- Ollama
+- `qwen2.5-coder:7b`
 - Linux desktop
 - rescrierea proiectului Ollama Control in Tauri + Rust
 
@@ -68,7 +68,6 @@ Task:
 Organizeaza backend-ul Rust in module clare pentru:
 - service status
 - modele Ollama
-- LM Studio
 - setari
 - monitorizare resurse
 - logging
@@ -450,92 +449,9 @@ Output:
 - Modifica minimul necesar.
 ```
 
-## Faza 9: scanare modele LM Studio
+## Faza 9: creare model derivat cu `num_ctx`
 
-### Prompt 9.1: scanare `.gguf`
-
-```text
-Task:
-Implementeaza functia Rust care scaneaza recursiv `~/.lmstudio/models` si returneaza fisierele `.gguf` ca `ModelEntry`.
-
-Constraints:
-- Sorteaza rezultatele alfabetic.
-- Calculeaza size si params daca este posibil.
-- Daca folderul lipseste, returneaza lista goala.
-
-Output:
-- Cod complet.
-- Explica strategia de scanare.
-```
-
-### Prompt 9.2: extragere parametri din nume fisier
-
-```text
-Task:
-Scrie un helper Rust care incearca sa extraga informatii de tip parametri din numele unui model, similar proiectului Python.
-
-Constraints:
-- Daca nu exista informatie clara, returneaza `N/A` sau echivalent.
-- Functia trebuie sa fie pura.
-
-Output:
-- Cod complet.
-- Include teste unitare pentru cateva exemple realiste.
-```
-
-## Faza 10: import LM Studio -> Ollama
-
-### Prompt 10.1: creare Modelfile temporar
-
-```text
-Task:
-Implementeaza functia care creeaza temporar un Modelfile cu continutul:
-`FROM "/cale/catre/model.gguf"`
-
-Constraints:
-- Curata fisierul temporar dupa utilizare.
-- Nu lasa fisiere orfane.
-
-Output:
-- Cod complet.
-- Explica tratamentul cleanup-ului.
-```
-
-### Prompt 10.2: import in Ollama
-
-```text
-Task:
-Implementeaza fluxul Rust care ruleaza:
-`ollama create NUME_MODEL -f MODelfile`
-
-Constraints:
-- In caz de succes, invalideaza cache-ul modelelor Ollama.
-- Returneaza erori explicite.
-- Nu incarca inca modelul dupa import in acest pas.
-
-Output:
-- Cod complet.
-- Explica ce informatii de eroare sunt pastrate.
-```
-
-### Prompt 10.3: import plus activare
-
-```text
-Task:
-Construieste fluxul complet pentru import din LM Studio si apoi activare a modelului importat.
-
-Constraints:
-- Dupa import reusit, foloseste exact fluxul existent de `run_ollama_model` cu confirmare reala.
-- Nu duplica logica de activare.
-
-Output:
-- Cod complet.
-- Explica pe scurt secventa completa.
-```
-
-## Faza 11: creare model derivat cu `num_ctx`
-
-### Prompt 11.1: helper pentru model derivat
+### Prompt 9.1: helper pentru model derivat
 
 ```text
 Task:
@@ -550,7 +466,7 @@ Output:
 - Include teste unitare.
 ```
 
-### Prompt 11.2: creare model cu context custom
+### Prompt 9.2: creare model cu context custom
 
 ```text
 Context:
@@ -571,7 +487,7 @@ Output:
 - Explica cum este salvat contextul preferat.
 ```
 
-### Prompt 11.3: comanda Tauri pentru creare model derivat
+### Prompt 9.3: comanda Tauri pentru creare model derivat
 
 ```text
 Task:
@@ -587,9 +503,9 @@ Output:
 - Explica validarea aplicata.
 ```
 
-## Faza 12: stergere model Ollama
+## Faza 10: stergere model Ollama
 
-### Prompt 12.1: `ollama rm`
+### Prompt 10.1: `ollama rm`
 
 ```text
 Task:
@@ -605,7 +521,7 @@ Output:
 - Explica tratamentul erorilor.
 ```
 
-### Prompt 12.2: comanda Tauri pentru delete
+### Prompt 10.2: comanda Tauri pentru delete
 
 ```text
 Task:
@@ -620,9 +536,9 @@ Output:
 - Explica contractul pentru frontend.
 ```
 
-## Faza 13: monitorizare resurse
+## Faza 11: monitorizare resurse
 
-### Prompt 13.1: RAM pentru procese Ollama
+### Prompt 11.1: RAM pentru procese Ollama
 
 ```text
 Task:
@@ -638,7 +554,7 @@ Output:
 - Explica metoda folosita.
 ```
 
-### Prompt 13.2: VRAM optional prin nvidia-smi
+### Prompt 11.2: VRAM optional prin nvidia-smi
 
 ```text
 Task:
@@ -653,7 +569,7 @@ Output:
 - Explica fallback-ul.
 ```
 
-### Prompt 13.3: text afisabil pentru resurse
+### Prompt 11.3: text afisabil pentru resurse
 
 ```text
 Task:
@@ -671,9 +587,9 @@ Output:
 - Include teste unitare.
 ```
 
-## Faza 14: wiring comenzi Tauri
+## Faza 12: wiring comenzi Tauri
 
-### Prompt 14.1: registru de comenzi
+### Prompt 12.1: registru de comenzi
 
 ```text
 Task:
@@ -688,7 +604,7 @@ Output:
 - Explica organizarea finala a comenzilor.
 ```
 
-### Prompt 14.2: stare partajata backend
+### Prompt 12.2: stare partajata backend
 
 ```text
 Task:
@@ -707,9 +623,9 @@ Output:
 - Explica responsabilitatea fiecarui camp.
 ```
 
-## Faza 15: frontend principal
+## Faza 13: frontend principal
 
-### Prompt 15.1: shell UI principal
+### Prompt 13.1: shell UI principal
 
 ```text
 Context:
@@ -737,7 +653,7 @@ Output:
 - Foloseste fisiere si organizare compatibile cu Vite si Vanilla TypeScript.
 ```
 
-### Prompt 15.2: componenta StatusCard
+### Prompt 13.2: componenta StatusCard
 
 ```text
 Task:
@@ -758,7 +674,7 @@ Output:
 - Stiluri sau clase asociate.
 ```
 
-### Prompt 15.3: componenta MetaCard
+### Prompt 13.3: componenta MetaCard
 
 ```text
 Task:
@@ -777,7 +693,7 @@ Output:
 - Tipurile necesare.
 ```
 
-### Prompt 15.4: bara de actiuni principale
+### Prompt 13.4: bara de actiuni principale
 
 ```text
 Task:
@@ -799,18 +715,15 @@ Output:
 - Explica props-urile componentei.
 ```
 
-## Faza 16: Model Loader UI
+## Faza 14: Model Loader UI
 
-### Prompt 16.1: modal fereastra modele
+### Prompt 14.1: modal fereastra modele
 
 ```text
 Task:
-Construieste modalul sau view-ul `Model Loader` cu doua taburi:
-- LM Studio
-- Ollama
+Construieste modalul sau view-ul `Model Loader` care afiseaza modelele disponibile in Ollama.
 
 Constraints:
-- Trebuie sa suporte schimbarea tabului fara resetari inutile.
 - Pastreaza structura simpla.
 - Implementeaza UI-ul in Vanilla TypeScript + CSS simplu.
 
@@ -819,7 +732,7 @@ Output:
 - Stilurile necesare.
 ```
 
-### Prompt 16.2: tabel modele
+### Prompt 14.2: tabel modele
 
 ```text
 Task:
@@ -841,7 +754,7 @@ Output:
 - Tipurile si props-urile.
 ```
 
-### Prompt 16.3: search/filter local
+### Prompt 14.3: search/filter local
 
 ```text
 Task:
@@ -857,7 +770,7 @@ Output:
 - Explica minimul de stare introdus.
 ```
 
-### Prompt 16.4: indicator model activ
+### Prompt 14.4: indicator model activ
 
 ```text
 Task:
@@ -872,9 +785,9 @@ Output:
 - Explica alegerea de stil.
 ```
 
-## Faza 17: conectare frontend-backend
+## Faza 15: conectare frontend-backend
 
-### Prompt 17.1: apel status initial
+### Prompt 15.1: apel status initial
 
 ```text
 Task:
@@ -890,7 +803,7 @@ Output:
 - Explica locul unde se face invocarea comenzii.
 ```
 
-### Prompt 17.2: polling controlat
+### Prompt 15.2: polling controlat
 
 ```text
 Context:
@@ -911,7 +824,7 @@ Output:
 - Explica cum previi suprapunerea refresh-urilor.
 ```
 
-### Prompt 17.3: comenzi de service din UI
+### Prompt 15.3: comenzi de service din UI
 
 ```text
 Task:
@@ -927,7 +840,7 @@ Output:
 - Explica tratamentul starilor tranzitorii.
 ```
 
-### Prompt 17.4: deschidere log din UI
+### Prompt 15.4: deschidere log din UI
 
 ```text
 Task:
@@ -942,9 +855,9 @@ Output:
 - Explica mecanismul folosit.
 ```
 
-## Faza 18: settings UI
+## Faza 16: settings UI
 
-### Prompt 18.1: modal setari
+### Prompt 16.1: modal setari
 
 ```text
 Task:
@@ -965,7 +878,7 @@ Output:
 - Stilurile necesare.
 ```
 
-### Prompt 18.2: validare keepalive
+### Prompt 16.2: validare keepalive
 
 ```text
 Task:
@@ -985,7 +898,7 @@ Output:
 - Explica regula de validare.
 ```
 
-### Prompt 18.3: save settings din UI
+### Prompt 16.3: save settings din UI
 
 ```text
 Task:
@@ -1001,13 +914,13 @@ Output:
 - Explica ce se intampla dupa salvare.
 ```
 
-## Faza 19: fluxuri modele in UI
+## Faza 17: fluxuri modele in UI
 
-### Prompt 19.1: listare modele Ollama in UI
+### Prompt 17.1: listare modele Ollama in UI
 
 ```text
 Task:
-Conecteaza tabul `Ollama` din Model Loader la backend pentru listarea modelelor.
+Conecteaza Model Loader la backend pentru listarea modelelor Ollama.
 
 Constraints:
 - Afiseaza loading state.
@@ -1020,23 +933,7 @@ Output:
 - Explica starile UI gestionate.
 ```
 
-### Prompt 19.2: listare modele LM Studio in UI
-
-```text
-Task:
-Conecteaza tabul `LM Studio` la backend pentru listarea modelelor `.gguf`.
-
-Constraints:
-- Afiseaza fallback clar daca nu exista modele.
-- Refoloseste tabelul existent daca este potrivit.
-- Nu introduce framework sau data layer suplimentar.
-
-Output:
-- Cod complet.
-- Explica reutilizarea componentelor.
-```
-
-### Prompt 19.3: select model Ollama din UI
+### Prompt 17.2: select model Ollama din UI
 
 ```text
 Task:
@@ -1053,24 +950,7 @@ Output:
 - Explica fluxul UI.
 ```
 
-### Prompt 19.4: import model LM Studio din UI
-
-```text
-Task:
-Conecteaza selectarea unui model LM Studio la fluxul de import si activare.
-
-Constraints:
-- Arata o stare de progres simpla.
-- Dupa succes, sincronizeaza lista de modele si modelul activ.
-- Nu duplica logica de refresh.
-- Foloseste doar structura existenta a frontend-ului Vanilla TypeScript.
-
-Output:
-- Cod complet.
-- Explica secventa de update UI.
-```
-
-### Prompt 19.5: eject model din UI
+### Prompt 17.3: eject model din UI
 
 ```text
 Task:
@@ -1086,7 +966,7 @@ Output:
 - Explica starile tratate.
 ```
 
-### Prompt 19.6: stergere model din UI
+### Prompt 17.4: stergere model din UI
 
 ```text
 Task:
@@ -1103,7 +983,7 @@ Output:
 - Explica fluxul de confirmare.
 ```
 
-### Prompt 19.7: creare model cu context din UI
+### Prompt 17.5: creare model cu context din UI
 
 ```text
 Task:
@@ -1120,9 +1000,9 @@ Output:
 - Explica starea formularului si apelul backend.
 ```
 
-## Faza 20: notificari si UX
+## Faza 18: notificari si UX
 
-### Prompt 20.1: sistem simplu de notificari
+### Prompt 18.1: sistem simplu de notificari
 
 ```text
 Task:
@@ -1142,7 +1022,7 @@ Output:
 - Explica modelul de stare pentru notificari.
 ```
 
-### Prompt 20.2: confirmari pentru actiuni riscante
+### Prompt 18.2: confirmari pentru actiuni riscante
 
 ```text
 Task:
@@ -1160,9 +1040,9 @@ Output:
 - Explica cand apare fiecare confirmare.
 ```
 
-## Faza 21: polish si rezilienta
+## Faza 19: polish si rezilienta
 
-### Prompt 21.1: reducere refresh inutil
+### Prompt 19.1: reducere refresh inutil
 
 ```text
 Task:
@@ -1180,7 +1060,7 @@ Output:
 - Explica optimizarile aplicate.
 ```
 
-### Prompt 21.2: hardening parsare CLI
+### Prompt 19.2: hardening parsare CLI
 
 ```text
 Task:
@@ -1195,7 +1075,7 @@ Output:
 - Explica edge cases acoperite.
 ```
 
-### Prompt 21.3: review tehnic local
+### Prompt 19.3: review tehnic local
 
 ```text
 Task:
@@ -1335,9 +1215,9 @@ Output:
 Ordinea buna pentru aceste prompturi este:
 
 1. Faza 1-3 pentru fundatie;
-2. Faza 4-14 pentru backend complet;
-3. Faza 15-20 pentru frontend si UX;
-4. Faza 21 + prompturile R/V pentru hardening.
+2. Faza 4-12 pentru backend complet;
+3. Faza 13-18 pentru frontend si UX;
+4. Faza 19 + prompturile R/V pentru hardening.
 
 ## Regula finala
 

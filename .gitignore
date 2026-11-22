@@ -5,7 +5,11 @@ venv/
 # Artefacte de build PyInstaller
 build/
 dist/
+release/
 *.spec.bak
+
+# Iconite generate din icon.png
+packaging/icons/
 
 # Cache Python
 __pycache__/

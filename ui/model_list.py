@@ -3,7 +3,6 @@ import customtkinter as ctk
 import queue
 import threading
 
-from core.lmstudio import get_lmstudio_models
 from core.ollama_models import get_ollama_models
 from services.ollama_info import normalize_model_name
 from utils.logging_config import logger
@@ -201,7 +200,6 @@ class ModelList:
         for m in filtered:
             self.add_row(
                 m["name"],
-                m["path"],
                 m["size"],
                 m["params"],
                 self.on_select,
@@ -222,7 +220,7 @@ class ModelList:
             return name
         return f"{name[:self.NAME_DISPLAY_MAX_CHARS - 1]}…"
 
-    def add_row(self, name: str, path: str | None, size: str | None, params: str | None, command=None, config_command=None, delete_command=None, is_active: bool = False) -> None:
+    def add_row(self, name: str, size: str | None, params: str | None, command=None, config_command=None, delete_command=None, is_active: bool = False) -> None:
         frame_kwargs = {
             "fg_color": self.ACTIVE_ROW_FG if is_active else self.DEFAULT_ROW_FG,
             "border_width": 1 if is_active else 0,
@@ -310,7 +308,7 @@ class ModelList:
                 hover_color=self.SELECT_BUTTON_HOVER,
                 text_color=self.SMALL_BUTTON_TEXT,
                 text_color_disabled=self.ACTION_BUTTON_DISABLED_TEXT,
-                command=lambda: command(name, path)
+                command=lambda: command(name)
             )
             self._remember_button_style(select_button, self.SELECT_BUTTON_FG, self.SELECT_BUTTON_HOVER)
             select_button.pack(side="left")
@@ -341,23 +339,16 @@ class ModelList:
         self.clear()
         self._update_scrollregion()
 
-    def load_models(self, mode: str, callback) -> None:
-        if mode == "lmstudio":
-            self.all_models = get_lmstudio_models()
-            self._apply_filter()
-            if not self.all_models:
-                self.clear()
-                self.add_empty("Niciun model LM Studio")
-                self._update_scrollregion()
-        else:
-            self.show_loading("Se încarcă modelele Ollama...")
-            result_queue: queue.Queue[tuple[list, bool]] = queue.Queue(maxsize=1)
-            threading.Thread(
-                target=self._load_ollama_thread,
-                args=(result_queue,),
-                daemon=True
-            ).start()
-            self.parent.after(50, lambda: self._poll_ollama_models(result_queue, callback))
+    def load_models(self, callback) -> None:
+        """Încarcă lista de modele Ollama în fundal și o livrează prin callback."""
+        self.show_loading("Se încarcă modelele Ollama...")
+        result_queue: queue.Queue[tuple[list, bool]] = queue.Queue(maxsize=1)
+        threading.Thread(
+            target=self._load_ollama_thread,
+            args=(result_queue,),
+            daemon=True
+        ).start()
+        self.parent.after(50, lambda: self._poll_ollama_models(result_queue, callback))
 
     def _load_ollama_thread(self, result_queue: queue.Queue[tuple[list, bool]]) -> None:
         try:

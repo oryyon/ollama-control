@@ -4,7 +4,6 @@ import time
 from typing import Callable
 
 from config.settings import KEEPALIVE_DEFAULT, is_valid_keepalive, settings
-from core.ollama_models import import_to_ollama
 from services.ollama_info import (normalize_model_name, obtine_model_activ,
                                    obtine_modelele_activate, _log_active_model_once,
                                    _log_no_active_model_once)
@@ -218,39 +217,3 @@ def run_model(name: str, progress_callback: Callable[[int], None] | None = None,
     if success and active_model_callback:
         active_model_callback(name)
     return success, None if success else _activation_timeout_message(name)
-
-
-def import_and_run_lmstudio(
-    name: str,
-    path: str | None,
-    on_done: Callable[[bool, str], None],
-    progress_callback: Callable[[int], None] | None = None,
-    size_gb: float = 0.0,
-) -> None:
-    """Importă un model din LM Studio și îl pornește."""
-    logger.info("Select requested for LM Studio model=%s path=%s size_gb=%.2f", name, path, size_gb)
-
-    if not path:
-        logger.error("LM Studio import aborted because model path is missing for %s", name)
-        on_done(False, name)
-        return
-
-    def after_import(success: bool, model_name: str) -> None:
-        logger.info("LM Studio import callback received for %s success=%s", model_name, success)
-        if success:
-            try:
-                success, _error_message = run_model(model_name, progress_callback=progress_callback, size_gb=size_gb)
-            except Exception as e:
-                logger.exception("Warmup failed after LM Studio import for %s", model_name)
-                on_done(False, model_name)
-                return
-        logger.info("LM Studio end-to-end flow finished for %s success=%s", model_name, success)
-        on_done(success, model_name)
-
-    threading.Thread(
-        target=lambda: import_to_ollama(
-            name, path, callback=after_import,
-            progress_callback=progress_callback, size_gb=size_gb
-        ),
-        daemon=True
-    ).start()

@@ -1,6 +1,4 @@
 import subprocess
-import tempfile
-import os
 import threading
 import time
 from typing import Callable
@@ -62,7 +60,6 @@ def _parse_ollama_models_output(output: str) -> list[dict[str, str | None]]:
 
         models.append({
             "name": name,
-            "path": None,
             "size": size_str,
             "params": extract_params(name),
         })
@@ -143,84 +140,6 @@ def _parse_size_to_gb(size_str: str) -> float:
         return float(size_str)
     except Exception:
         return 0.0
-
-
-def import_to_ollama(
-    name: str,
-    path: str,
-    callback: Callable[[bool, str], None] | None = None,
-    progress_callback: Callable[[int], None] | None = None,
-    size_gb: float = 0.0,
-) -> None:
-    modelfile_path: str | None = None
-    process_done = threading.Event()
-    success = [False]
-
-    logger.info("Starting LM Studio import into Ollama: name=%s path=%s size_gb=%.2f", name, path, size_gb)
-
-    def run_import() -> None:
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".modelfile") as f:
-                modelfile_path = f.name
-                f.write(f'FROM "{path}"\n')
-
-            subprocess.run(
-                ["ollama", "create", name, "-f", modelfile_path],
-                check=True
-            )
-            success[0] = True
-            invalidate_ollama_models_cache()
-            logger.info("LM Studio import finished successfully: %s", name)
-        except Exception as e:
-            logger.exception("LM Studio import failed for %s", name)
-            success[0] = False
-        finally:
-            if modelfile_path and os.path.exists(modelfile_path):
-                try:
-                    os.unlink(modelfile_path)
-                except Exception:
-                    pass
-            process_done.set()
-
-    def simulate_progress() -> None:
-        # Estimare: ~2.5 secunde per GB pentru import (create)
-        estimated_seconds = max(size_gb * 2.5, 3.0)
-        interval = 0.5
-        steps = int(estimated_seconds / interval)
-        for i in range(steps):
-            if process_done.is_set():
-                break
-            pct = min(int((i / steps) * 100), 99)
-            if progress_callback:
-                try:
-                    progress_callback(pct)
-                except Exception:
-                    pass
-            time.sleep(interval)
-        if progress_callback and not process_done.is_set():
-            try:
-                progress_callback(99)
-            except Exception:
-                pass
-        process_done.wait()
-        if progress_callback:
-            try:
-                progress_callback(100)
-            except Exception:
-                pass
-
-    import_thread = threading.Thread(target=run_import, daemon=True)
-    import_thread.start()
-
-    if progress_callback:
-        progress_thread = threading.Thread(target=simulate_progress, daemon=True)
-        progress_thread.start()
-
-    import_thread.join()
-    process_done.set()
-
-    if callback:
-        callback(success[0], name)
 
 
 def delete_ollama_model(

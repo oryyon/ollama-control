@@ -10,7 +10,7 @@ Mediul tinta cerut pentru noul proiect:
 - CPU: Intel i3-5005U
 - RAM: 12 GB
 - Flux de dezvoltare: VS Code + Continue
-- Model local de asistenta: LM Studio cu `qwen2.5-coder-7b-instruct`
+- Model local de asistenta: Ollama cu `qwen2.5-coder:7b`
 
 Obiectivul functional al noii versiuni este sa pastreze comportamentul aplicatiei curente, dar cu arhitectura desktop moderna, backend Rust si frontend Tauri.
 
@@ -27,8 +27,6 @@ Functiile principale actuale:
 - monitorizare consum RAM si, daca exista GPU NVIDIA, VRAM;
 - incarcare model Ollama cu confirmare reala din backend;
 - eject model activ;
-- scanare modele `.gguf` din LM Studio;
-- import modele LM Studio in Ollama prin `ollama create`;
 - creare modele derivate cu `PARAMETER num_ctx`;
 - stergere modele Ollama;
 - setari persistente pentru tema, auto-refresh, confirmare stop/restart si `keepalive`;
@@ -56,8 +54,7 @@ Fluxul de bootstrap actual:
 - `core/app_state.py`: stare UI in memorie;
 - `core/commands.py`: executie `pkexec systemctl` pentru start/stop/restart;
 - `core/state_manager.py`: orchestrare refresh UI si task-uri in background;
-- `core/lmstudio.py`: scanare recursiva `~/.lmstudio/models/**/*.gguf`;
-- `core/ollama_models.py`: lista modele Ollama, import, stergere, cache;
+- `core/ollama_models.py`: lista modele Ollama, stergere, cache;
 - `core/model_config.py`: creare modele derivate cu `num_ctx`;
 - `services/systemd_service.py`: citire stare `systemd`;
 - `services/ollama_info.py`: versiune Ollama, model activ, normalizare nume;
@@ -138,27 +135,7 @@ Flux actual:
 3. repeta verificarea modelului activ pentru cateva secunde;
 4. daca modelul nu mai este activ, marcheaza eject-ul ca reusit.
 
-### 5. Import din LM Studio
-
-Flux actual:
-
-1. se cauta fisiere `.gguf` in `~/.lmstudio/models`;
-2. la selectare, se creeaza temporar un Modelfile cu:
-
-```text
-FROM "/cale/catre/model.gguf"
-```
-
-3. se ruleaza:
-
-```bash
-ollama create NUME_MODEL -f /tmp/fisier.modelfile
-```
-
-4. dupa import reusit, lista de modele Ollama este invalidata din cache;
-5. apoi modelul importat este incarcat prin acelasi flux de activare descris mai sus.
-
-### 6. Creare model derivat cu context custom
+### 5. Creare model derivat cu context custom
 
 Flux actual:
 
@@ -189,7 +166,7 @@ Optiuni actuale pentru `num_ctx`:
 - 65536
 - 128000
 
-### 7. Stergere model Ollama
+### 6. Stergere model Ollama
 
 Flux actual:
 
@@ -198,7 +175,7 @@ Flux actual:
 3. invalidare cache;
 4. refresh lista.
 
-### 8. Monitorizare resurse
+### 7. Monitorizare resurse
 
 Flux actual:
 
@@ -206,7 +183,7 @@ Flux actual:
 - VRAM: optional, prin `nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader,nounits` si corelare PIDs cu procese Ollama;
 - daca nu se gasesc valori, UI-ul afiseaza `—`.
 
-### 9. Persistenta setarilor
+### 8. Persistenta setarilor
 
 Fisier actual: `settings.json` in radacina aplicatiei sau langa executabilul impachetat.
 
@@ -253,10 +230,7 @@ Contine:
 
 ### Fereastra Model Loader
 
-Are doua moduri:
-
-- `LM Studio`
-- `Ollama`
+Afiseaza exclusiv modelele disponibile in Ollama.
 
 Elemente functionale:
 
@@ -265,10 +239,10 @@ Elemente functionale:
 - coloane: `Stare`, `Model`, `Dimensiune`, `Parametri`;
 - indicator vizual pentru modelul activ;
 - actiuni pe rand:
-  - `Select` pentru ambele surse;
+  - `Select` pentru incarcarea modelului;
   - `⚙️` pentru configurarea modelelor Ollama;
   - `🗑️` pentru stergerea modelelor Ollama;
-- progres vizual pentru import si activare;
+- progres vizual pentru activare;
 - inchidere sigura a ferestrei dupa succes sau anulare.
 
 ### Fereastra Setari
@@ -289,9 +263,7 @@ Noua implementare trebuie sa presupuna explicit:
 - serviciu `ollama` gestionat de `systemd`;
 - `pkexec` disponibil pentru operatiile privilegiate;
 - `curl` disponibil daca se pastreaza verificarea rapida a serverului;
-- optional `nvidia-smi` pentru VRAM;
-- LM Studio instalat local daca utilizatorul vrea import de modele `.gguf`;
-- structura LM Studio: `~/.lmstudio/models`.
+- optional `nvidia-smi` pentru VRAM.
 
 ## Cerinte non-functionale pentru Tauri + Rust
 
@@ -370,7 +342,6 @@ Module Rust recomandate:
 - `src-tauri/src/main.rs`: bootstrap Tauri;
 - `src-tauri/src/commands/service.rs`: start/stop/restart/status;
 - `src-tauri/src/commands/models.rs`: listare, activare, eject, delete;
-- `src-tauri/src/commands/lmstudio.rs`: scanare `.gguf`, import;
 - `src-tauri/src/commands/settings.rs`: load/save settings;
 - `src-tauri/src/monitoring/resources.rs`: RAM/VRAM;
 - `src-tauri/src/monitoring/ollama.rs`: versiune, model activ;
@@ -434,11 +405,9 @@ Exemple de comenzi Tauri utile:
 - `get_ollama_version() -> String`
 - `get_active_model() -> ActiveModelState`
 - `get_resource_usage() -> ResourceUsage`
-- `list_lmstudio_models() -> Vec<ModelEntry>`
 - `list_ollama_models(force_refresh: bool) -> Vec<ModelEntry>`
 - `run_ollama_model(name: String) -> CommandResult`
 - `eject_active_model() -> CommandResult`
-- `import_lmstudio_model(name: String, path: String) -> CommandResult`
 - `create_model_with_context(base_name: String, num_ctx: u32) -> CommandResult`
 - `delete_ollama_model(name: String) -> CommandResult`
 - `load_settings() -> AppSettings`
@@ -500,15 +469,13 @@ Versiunea noua ar trebui sa livreze minim paritatea de mai jos:
 1. dashboard cu stare serviciu, model activ, versiune si resurse;
 2. start/stop/restart cu elevare prin `pkexec`;
 3. listare modele Ollama;
-4. listare modele LM Studio `.gguf`;
-5. import LM Studio -> Ollama;
-6. selectare si confirmare reala a modelului activ;
-7. eject model;
-8. stergere model;
-9. creare model derivat cu `num_ctx`;
-10. setari persistente;
-11. deschidere log din UI;
-12. notificari clare pentru operatii si erori.
+4. selectare si confirmare reala a modelului activ;
+5. eject model;
+6. stergere model;
+7. creare model derivat cu `num_ctx`;
+8. setari persistente;
+9. deschidere log din UI;
+10. notificari clare pentru operatii si erori.
 
 ## Ordine recomandata de implementare pentru noul proiect
 
@@ -518,10 +485,9 @@ Versiunea noua ar trebui sa livreze minim paritatea de mai jos:
 4. listare modele Ollama si detectare model activ;
 5. `run model` cu confirmare de activare;
 6. eject model;
-7. scanare LM Studio si import `.gguf`;
-8. creare model derivat cu `num_ctx`;
-9. monitorizare RAM/VRAM;
-10. polish UI, teme si packaging Linux.
+7. creare model derivat cu `num_ctx`;
+8. monitorizare RAM/VRAM;
+9. polish UI, teme si packaging Linux.
 
 ## Rezumat practic
 
@@ -530,6 +496,6 @@ Pe scurt, Ollama Control este un panou desktop Linux pentru Ollama, concentrat p
 - controlul serviciului `ollama`;
 - vizibilitate asupra starii reale a backend-ului;
 - administrarea modelelor Ollama;
-- importul si operationalizarea rapida a modelelor din LM Studio.
+- activarea rapida a modelelor deja instalate in Ollama.
 
 Daca noul proiect Tauri + Rust pastreaza aceste fluxuri si aceste garantii de confirmare, va reproduce fidel aplicatia actuala intr-o forma mai moderna si mai potrivita pentru mediul hardware si de dezvoltare specificat.

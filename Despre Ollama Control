@@ -9,10 +9,11 @@ Aplicația funcționează ca un centru de control local pentru:
 - starea serviciului Ollama;
 - monitorizarea modelului activ;
 - încărcarea și ejectarea modelelor;
-- importul modelelor din LM Studio în Ollama;
 - configurarea unor opțiuni utile pentru utilizarea de zi cu zi.
 
 Interfața este orientată spre uz practic: afișează informații esențiale despre serviciu, oferă acțiuni rapide și reduce pașii necesari pentru operațiile frecvente.
+
+Aplicația este dedicată exclusiv Ollama. Nu interacționează cu alte servere locale de modele și nu importă modele din surse externe: toate modelele pe care le administrează sunt deja instalate în Ollama.
 
 ## Ce poate să facă
 
@@ -22,11 +23,17 @@ Interfața este orientată spre uz practic: afișează informații esențiale de
 - Detectează și afișează modelul Ollama activ.
 - Încarcă modele Ollama și confirmă activarea lor înainte de a marca operația ca reușită.
 - Ejectează modelul activ direct din interfață.
-- Importă modele din LM Studio în Ollama.
 - Permite creare de variante de modele Ollama cu configurații suplimentare, cum ar fi contextul (`num_ctx`).
 - Permite ștergerea modelelor Ollama din interfața dedicată de administrare.
 - Păstrează setări locale precum intervalul de auto-refresh, confirmarea pentru Stop/Restart, tema și durata `keepalive` pentru modele.
 - Reține modelele utilizate recent pentru acces mai rapid.
+
+## Cum se distribuie
+
+Aplicația este livrată în două forme, ambele cu toate dependințele incluse:
+
+- **pachet Debian / Ubuntu** (`.deb`), instalabil cu `apt`;
+- **AppImage**, care poate fi rulat direct, fără instalare.
 
 ## Cui îi este utilă
 

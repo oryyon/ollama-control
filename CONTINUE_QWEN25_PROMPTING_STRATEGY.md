@@ -7,8 +7,8 @@ Acest ghid este conceput pentru dezvoltarea noului proiect Ollama Control in Tau
 - Kubuntu 24.04
 - Intel i3-5005U
 - 12 GB RAM
-- LM Studio
-- modelul `qwen2.5-coder-7b-instruct`
+- Ollama
+- modelul `qwen2.5-coder:7b`
 - VS Code + Continue
 
 Obiectivul nu este sa obtii toata aplicatia dintr-un singur prompt, ci sa folosesti modelul eficient, predictibil si cu consum rezonabil de resurse.
@@ -218,14 +218,12 @@ Pentru acest proiect, ordinea buna de lucru in Continue este:
 5. listare modele Ollama;
 6. incarcare model cu confirmare reala;
 7. eject model;
-8. listare LM Studio `.gguf`;
-9. import model in Ollama;
-10. creare model derivat cu `num_ctx`;
-11. monitorizare resurse;
-12. UI principal;
-13. fereastra modele;
-14. setari persistente;
-15. polish si validare.
+8. creare model derivat cu `num_ctx`;
+9. monitorizare resurse;
+10. UI principal;
+11. fereastra modele;
+12. setari persistente;
+13. polish si validare.
 
 Nu sari peste ordinea asta daca vrei sa reduci erorile cumulative.
 
@@ -370,7 +368,6 @@ Prompts pentru:
 
 - `run_ollama_model()` cu timeout si confirmare reala;
 - `eject_active_model()`;
-- `import_lmstudio_model()`;
 - `create_model_with_context()`.
 
 ### Faza 3: UI

@@ -30,13 +30,11 @@ class OllamaModelsTests(unittest.TestCase):
             [
                 {
                     "name": "llama3:latest",
-                    "path": None,
                     "size": "4.7 GB",
                     "params": "N/A",
                 },
                 {
                     "name": "qwen3:8b",
-                    "path": None,
                     "size": "6.2 GB",
                     "params": "8B",
                 },
@@ -77,8 +75,8 @@ class ActiveModelDetectionTests(unittest.TestCase):
 
     PS_OUTPUT = (
         "NAME                                            ID              SIZE      PROCESSOR    CONTEXT    UNTIL             \n"
-        "Phi-4-mini-reasoning-Q4_K_M.gguf:latest         619fdf0d77a8    3.1 GB    100% CPU     4096       6 hours from now     \n"
-        "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf:latest    9aba0d51298e    2.2 GB    100% CPU     4096       9 minutes from now   \n"
+        "phi4-mini-reasoning:latest                     619fdf0d77a8    3.1 GB    100% CPU     4096       6 hours from now     \n"
+        "qwen2.5-coder:3b                               9aba0d51298e    2.2 GB    100% CPU     4096       9 minutes from now   \n"
     )
 
     def test_modelele_activate_include_toate_randurile(self) -> None:
@@ -94,8 +92,8 @@ class ActiveModelDetectionTests(unittest.TestCase):
         self.assertEqual(
             modele,
             [
-                "Phi-4-mini-reasoning-Q4_K_M.gguf:latest",
-                "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf:latest",
+                "phi4-mini-reasoning:latest",
+                "qwen2.5-coder:3b",
             ],
         )
 
@@ -113,12 +111,10 @@ class ActiveModelDetectionTests(unittest.TestCase):
         )
 
         with patch.object(ollama_info.subprocess, "run", return_value=result):
-            gasit, text = _is_expected_model_active(
-                "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf:latest"
-            )
+            gasit, text = _is_expected_model_active("qwen2.5-coder:3b")
 
         self.assertTrue(gasit, text)
-        self.assertIn("Qwen2.5-Coder", text)
+        self.assertIn("qwen2.5-coder", text)
 
     def test_lista_de_modele_nu_se_goleste_la_timeout(self) -> None:
         """La timeout păstrăm ultima listă — modelele nu au dispărut."""
@@ -268,6 +264,76 @@ class ResourceMonitorTests(unittest.TestCase):
     def test_uptime_handles_missing_or_invalid_timestamp(self) -> None:
         for value in (None, "", "n/a", "invalid"):
             self.assertEqual(formateaza_uptime(value), "Uptime indisponibil")
+
+
+class NoLmStudioTests(unittest.TestCase):
+    """Aplicația este exclusiv despre Ollama — fără nicio urmă de LM Studio.
+
+    LM Studio a fost eliminat complet din proiect. Testul blochează
+    reintroducerea lui prin cod sau prin documentație.
+    """
+
+    EXCLUDE = {"venv", "build", "dist", ".git", ".continue", "__pycache__"}
+
+    #: Termeni interziși în surse și documentație.
+    TERMENI_INTERZISI = ("lm studio", "lmstudio", "lm_studio", ".gguf")
+
+    def test_nicio_sursa_nu_mai_mentioneaza_lm_studio(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        # Acest fișier conține termenii interziși prin definiție, deci e exclus.
+        acest_fisier = Path(__file__).resolve()
+        gasiri: list[str] = []
+        for cale in sorted(radacina.rglob("*")):
+            if not cale.is_file():
+                continue
+            if cale.resolve() == acest_fisier:
+                continue
+            if any(part in self.EXCLUDE for part in cale.parts):
+                continue
+            if cale.suffix.lower() not in (".py", ".md", ".desktop", ".spec", ".sh", ".txt"):
+                continue
+            try:
+                continut = cale.read_text(encoding="utf-8", errors="ignore").lower()
+            except OSError:
+                continue
+            for termen in self.TERMENI_INTERZISI:
+                if termen in continut:
+                    gasiri.append(f"{cale.relative_to(radacina)}: {termen}")
+
+        self.assertEqual(gasiri, [], "referințe LM Studio rămase:\n" + "\n".join(gasiri))
+
+    def test_modulul_lmstudio_nu_mai_exista(self) -> None:
+        import importlib.util
+
+        self.assertIsNone(importlib.util.find_spec("core.lmstudio"))
+
+
+class SettingsLocationTests(unittest.TestCase):
+    """Setările stau în `~/.config/ollama-control/`, nu lângă executabil."""
+
+    def test_setarile_sunt_in_directorul_xdg(self) -> None:
+        self.assertEqual(settings_config.CONFIG_DIR.name, "ollama-control")
+        self.assertEqual(settings_config.SETTINGS_PATH.parent, settings_config.CONFIG_DIR)
+
+    def test_directorul_de_configurare_se_creeaza_la_salvare(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as temporar:
+            director = Path(temporar) / "ollama-control"
+            cale = director / "settings.json"
+            original_dir = settings_config.CONFIG_DIR
+            original_path = settings_config.SETTINGS_PATH
+            try:
+                settings_config.CONFIG_DIR = director
+                settings_config.SETTINGS_PATH = cale
+                settings_config.salveaza_setari()
+                self.assertTrue(cale.exists())
+            finally:
+                settings_config.CONFIG_DIR = original_dir
+                settings_config.SETTINGS_PATH = original_path
 
 
 class HelperTests(unittest.TestCase):

@@ -1,5 +1,7 @@
 import json
+import os
 import re
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -13,7 +15,38 @@ else:
     BASE_DIR = Path(__file__).resolve().parent.parent
     APP_DIR = BASE_DIR
 
-SETTINGS_PATH = APP_DIR / "settings.json"
+#: Numele aplicației în configurațiile XDG.
+APP_NAME = "ollama-control"
+
+#: Directorul în care sunt păstrate setările utilizatorului.
+#:
+#: Setările nu pot trăi lângă executabil: odată instalată în `/usr/lib`
+#: sau montată într-un AppImage, acea locație nu este scrisibilă fără
+#: privilegii de root. Folosim `~/.config/ollama-control/` (standard XDG).
+def _config_dir() -> Path:
+    base = os.environ.get("XDG_CONFIG_HOME") or ""
+    root = Path(base).expanduser() if base else Path.home() / ".config"
+    return root / APP_NAME
+
+
+CONFIG_DIR = _config_dir()
+SETTINGS_PATH = CONFIG_DIR / "settings.json"
+
+#: Locația veche a setărilor (înainte de migrarea la XDG). O folosim
+#: o singură dată, pentru a prelua setările existente ale utilizatorului.
+LEGACY_SETTINGS_PATH = APP_DIR / "settings.json"
+
+
+def _migrate_legacy_settings() -> None:
+    """Mută setările din vechea locație în cea XDG, dacă e cazul."""
+    legacy = LEGACY_SETTINGS_PATH
+    if legacy == SETTINGS_PATH or not legacy.exists() or SETTINGS_PATH.exists():
+        return
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(legacy, SETTINGS_PATH)
+    except OSError:
+        pass
 
 #: Durata implicită de keepalive pentru modelele Ollama: zece minute.
 #: Punct unic de adevăr — folosit de interfață, de validare și de rulare.
@@ -41,6 +74,7 @@ settings: dict[str, Any] = {}
 
 
 def incarca_setari() -> dict[str, Any]:
+    _migrate_legacy_settings()
     if SETTINGS_PATH.exists():
         try:
             with SETTINGS_PATH.open("r", encoding="utf-8") as f:
@@ -52,8 +86,14 @@ def incarca_setari() -> dict[str, Any]:
 
 
 def salveaza_setari() -> None:
-    with SETTINGS_PATH.open("w", encoding="utf-8") as f:
-        json.dump(settings, f, ensure_ascii=False, indent=2)
+    try:
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        with SETTINGS_PATH.open("w", encoding="utf-8") as f:
+            json.dump(settings, f, ensure_ascii=False, indent=2)
+    except OSError:
+        # Directorul de configurare poate fi inscriptibil în mod restricționat;
+        # pierderea setărilor nu trebuie să oprească aplicația.
+        pass
 
 
 def aplica_interval_auto_refresh() -> None:

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Ollama Control
+GenericName=Ollama Manager
+Comment=Panou desktop pentru controlul serviciului local Ollama
+Exec=ollama_control
+Icon=ollama-control
+Terminal=false
+Categories=Utility;
+Keywords=ollama;llm;model;ai;local;server;
+StartupNotify=true
+StartupWMClass=ollama_control

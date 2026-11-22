@@ -1,0 +1,10 @@
+#!/bin/bash
+# AppRun pentru AppImage-ul Ollama Control.
+#
+# Seteaza APPDIR si LANSEAZA executabilul PyInstaller din `usr/bin/`.
+set -e
+
+HERE="$(dirname "$(readlink -f "${0}")")"
+export APPDIR="${HERE}"
+
+exec "${HERE}/usr/bin/ollama_control" "$@"

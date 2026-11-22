@@ -1,11 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+# Spec PyInstaller pentru Ollama Control.
+#
+# Se foloseste build onedir (`COLLECT`), nu onefile: pornirea este mult mai
+# rapida, iar distributia in pachete (.deb) si AppImage este mai simpla.
 
 
 a = Analysis(
     ['ollama_control.py'],
     pathex=[],
     binaries=[],
-    datas=[('icon.png', '.'), ('ui_uptime.png', '.'), ('ui_status.png', '.'), ('ui_model.png', '.'), ('ui_version.png', '.')],
+    datas=[
+        ('icon.png', '.'),
+        ('ui_uptime.png', '.'),
+        ('ui_status.png', '.'),
+        ('ui_model.png', '.'),
+        ('ui_version.png', '.'),
+    ],
     hiddenimports=['PIL', 'PIL._tkinter_finder'],
     hookspath=[],
     hooksconfig={},
@@ -19,10 +29,9 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
-    name='ollama_control_ui',
+    exclude_binaries=True,
+    name='ollama_control',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -35,4 +44,14 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='ollama_control',
 )
