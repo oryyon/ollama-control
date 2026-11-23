@@ -86,8 +86,10 @@ class ActiveModelDetectionTests(unittest.TestCase):
             args=["ollama", "ps"], returncode=0, stdout=self.PS_OUTPUT, stderr=""
         )
 
-        with patch.object(ollama_info.subprocess, "run", return_value=result):
-            modele = obtine_modelele_activate()
+        # API-ul e sursa primară; aici testăm calea de rezervă (CLI-ul).
+        with patch.object(ollama_info, "modele_incarcate_detaliat", return_value=None):
+            with patch.object(ollama_info.subprocess, "run", return_value=result):
+                modele = obtine_modelele_activate()
 
         self.assertEqual(
             modele,
@@ -96,6 +98,55 @@ class ActiveModelDetectionTests(unittest.TestCase):
                 "qwen2.5-coder:3b",
             ],
         )
+
+    def test_modelele_activate_uses_api_first(self) -> None:
+        """API-ul HTTP e sursa primară: răspunde instant, CLI-ul poate bloca.
+
+        Regresie: cu serverul ocupat, `ollama ps` expira după 3 s, iar
+        aplicația raporta „Model activ: indisponibil” deși modelul era
+        încărcat corect (fereastra Modele Ollama îl arăta ca „Activ”).
+        """
+        from services.ollama_info import obtine_modelele_activate
+
+        with patch.object(
+            ollama_info,
+            "modele_incarcate_detaliat",
+            return_value=["lfm3-audio:latest", "qwen2.5-coder:3b"],
+        ):
+            with patch.object(ollama_info.subprocess, "run") as mock_run:
+                modele = obtine_modelele_activate()
+
+        self.assertEqual(modele, ["lfm3-audio:latest", "qwen2.5-coder:3b"])
+        mock_run.assert_not_called()
+
+    def test_model_activ_se_afiseaza_chiar_daca_serviciul_este_activating(self) -> None:
+        """Starea systemd nu ascunde modelul: serverul e sursa de adevăr.
+
+        Regresie: cu serviciul în „activating”, aplicația afișa
+        „Indisponibil” la MODEL ACTIV, deși modelul era încărcat.
+        """
+        from services.ollama_info import obtine_model_activ
+
+        with patch.object(
+            ollama_info, "modele_incarcate_detaliat", return_value=["lfm3-audio:latest"]
+        ):
+            for stare in ("activating", "inactive", "active"):
+                text = obtine_model_activ(stare)
+                self.assertIn("lfm3-audio:latest", text, f"stare={stare}")
+
+    def test_server_neaccesibil_este_diferit_de_fara_model(self) -> None:
+        """Server inaccesibil → „indisponibil”; server gol → „niciun model”."""
+        from services.ollama_info import obtine_model_activ
+
+        with patch.object(ollama_info, "modele_incarcate_detaliat", return_value=None):
+            with patch.object(ollama_info.subprocess, "run", side_effect=OSError("boom")):
+                with patch.object(ollama_info.subprocess, "run", side_effect=OSError("boom")):
+                    text = obtine_model_activ("active")
+        self.assertIn("indisponibil", text.lower())
+
+        with patch.object(ollama_info, "modele_incarcate_detaliat", return_value=[]):
+            text = obtine_model_activ("active")
+        self.assertIn("niciun model", text.lower())
 
     def test_modelul_al_doilea_rand_e_recunoscut_ca_activ(self) -> None:
         """Regresie: modelul nou se încărca, dar aplicația raporta eșec.
@@ -110,8 +161,9 @@ class ActiveModelDetectionTests(unittest.TestCase):
             args=["ollama", "ps"], returncode=0, stdout=self.PS_OUTPUT, stderr=""
         )
 
-        with patch.object(ollama_info.subprocess, "run", return_value=result):
-            gasit, text = _is_expected_model_active("qwen2.5-coder:3b")
+        with patch.object(ollama_info, "modele_incarcate_detaliat", return_value=None):
+            with patch.object(ollama_info.subprocess, "run", return_value=result):
+                gasit, text = _is_expected_model_active("qwen2.5-coder:3b")
 
         self.assertTrue(gasit, text)
         self.assertIn("qwen2.5-coder", text)

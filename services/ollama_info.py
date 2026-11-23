@@ -1,5 +1,6 @@
 import subprocess
 
+from services.ollama_api import modele_incarcate_detaliat
 from utils.logging_config import logger
 
 _last_logged_service_state: str | None = None
@@ -10,7 +11,7 @@ _active_model_timeout_logged: bool = False
 def _log_service_state_once(active_state: str) -> None:
     global _last_logged_service_state, _active_model_timeout_logged
     if _last_logged_service_state != active_state:
-        logger.info("Active model check skipped because service state is %s", active_state)
+        logger.info("Ollama server unreachable (service state: %s)", active_state)
         _last_logged_service_state = active_state
     _active_model_timeout_logged = False
 
@@ -72,16 +73,14 @@ def obtine_versiune_ollama() -> str:
 
 
 def obtine_model_activ(active_state: str) -> str:
-    """Încearcă să detecteze modelul activ din procesele Ollama.
+    """Încearcă să detecteze modelul activ.
 
-    Returnează primul model încărcat (pentru afișare). Pentru verificări
-    folosiți `obtine_modelele_activate` — pot exista mai multe modele
-    încărcate simultan (keepalive lung), și primul nu e neapărat cel căutat.
+    Serverul Ollama este sursa de adevăr, nu systemd: chiar dacă serviciul
+    este într-o stare intermediară („activating"), serverul poate răspunde
+    deja și poate ține un model în memorie. De aceea interogăm serverul
+    întotdeauna, iar starea systemd se folosește doar ca explicație când
+    serverul nu răspunde deloc.
     """
-    if active_state != "active":
-        _log_service_state_once(active_state)
-        return "Model activ: indisponibil"
-
     modele = obtine_modelele_activate()
     if modele:
         _log_active_model_once(modele[0])
@@ -89,11 +88,19 @@ def obtine_model_activ(active_state: str) -> str:
     if modele is not None:
         _log_no_active_model_once()
         return "Model activ: niciun model încărcat"
+
+    # Serverul nu răspunde deloc — starea systemd explică de ce.
+    _log_service_state_once(active_state)
     return "Model activ: indisponibil"
 
 
 def obtine_modelele_activate() -> list[str] | None:
     """Modelele încărcate în serverul Ollama (toate, nu doar primul).
+
+    Sursa primară este API-ul HTTP (`/api/ps`), nu CLI-ul: comanda
+    `ollama ps` se blochează cât timp serverul e ocupat (pornire lentă sau
+    încărcare de model) și produce „Model activ: indisponibil” deși modelul
+    era încărcat corect. API-ul răspunde imediat și dă același rezultat.
 
     `ollama ps` poate afișa mai multe modele simultan — cu un keepalive lung
     (ex.: 6h), modelul vechi rămâne în memorie, iar cel nou se adaugă
@@ -103,6 +110,11 @@ def obtine_modelele_activate() -> list[str] | None:
       - lista numelor de model (posibil vidă) — serverul răspunde;
       - `None` — serverul nu poate fi consultat (eroare/timeout).
     """
+    modele_api = modele_incarcate_detaliat()
+    if modele_api is not None:
+        return modele_api
+
+    # Fallback 1: CLI-ul `ollama ps`.
     try:
         rezultat = subprocess.run(
             ["ollama", "ps"],
@@ -118,12 +130,10 @@ def obtine_modelele_activate() -> list[str] | None:
             return [line.split()[0] for line in lines[1:] if line.split()]
     except subprocess.TimeoutExpired:
         _log_active_model_timeout_once()
-        return None
     except Exception:
         logger.exception("Unexpected error while detecting active models")
-        return None
 
-    # Fallback: scanăm procesele „ollama runner” (utilitarul e învechit sau
+    # Fallback 2: scanăm procesele „ollama runner” (utilitarul e învechit sau
     # serverul nu răspunde la „ollama ps”, dar runnerul rulează).
     try:
         rezultat = subprocess.run(

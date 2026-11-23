@@ -3,7 +3,7 @@ import subprocess
 from services.utils import ruleaza_si_citeste
 
 #: Proprietatile systemd citite intr-un singur apel.
-_PROPRIETATI_SERVICIU = "ActiveState,SubState,ActiveEnterTimestamp"
+_PROPRIETATI_SERVICIU = "ActiveState,SubState,ActiveEnterTimestamp,NRestarts"
 
 
 def obtine_detalii_serviciu() -> dict[str, str]:
@@ -25,16 +25,23 @@ def obtine_detalii_serviciu() -> dict[str, str]:
             if separator:
                 valori[cheie.strip()] = valoare.strip()
 
+        try:
+            reporniri = str(int(valori.get("NRestarts") or 0))
+        except ValueError:
+            reporniri = "0"
+
         return {
             "active_state": valori.get("ActiveState") or "necunoscut",
             "sub_state": valori.get("SubState") or "necunoscut",
             "active_timestamp": valori.get("ActiveEnterTimestamp") or "",
+            "restart_count": reporniri,
         }
     except Exception:
         return {
             "active_state": "necunoscut",
             "sub_state": "necunoscut",
             "active_timestamp": "",
+            "restart_count": "0",
         }
 
 

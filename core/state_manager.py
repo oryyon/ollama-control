@@ -90,7 +90,14 @@ def actualizeaza_info_ollama_ui(
     normalized_actual_model_name = normalize_model_name(actual_model_name)
     normalized_selected_model_name = normalize_model_name(state.selected_model_name or "")
 
-    if state.model_incarcare_in_curs and state.selected_model_name and actual_model_name in ("Se verifică...", "Indisponibil", "niciun model încărcat"):
+    # Valori care înseamnă „nu știm încă" — se compară fără diferențiere
+    # de majuscule, fiindcă textul vine din mai multe locuri.
+    necunoscut = actual_model_name.strip().lower() in (
+        "se verifică...", "se verifica...", "indisponibil", "niciun model încărcat",
+        "niciun model incarcat", "—",
+    )
+
+    if state.model_incarcare_in_curs and state.selected_model_name and necunoscut:
         state.model_activ_cache = state.selected_model_name
     else:
         state.model_activ_cache = actual_model_name
@@ -126,6 +133,52 @@ def randare_stare_serviciu_ui(widgets: dict, detalii: dict[str, str]) -> None:
         widgets["subtitle_label"].configure(text="Așteaptă răspunsul systemd", text_color="#9fb0c7")
         widgets["uptime_value_label"].configure(text="Se verifică...", text_color="#93c5fd")
         widgets["detail_state_value"].configure(text="Checking · Pending", text_color="#cbd5e1")
+        widgets["model_label"].configure(text_color="#c4b5fd")
+    elif active_state == "activating":
+        reporniri = 0
+        try:
+            reporniri = int(detalii.get("restart_count") or 0)
+        except (TypeError, ValueError):
+            reporniri = 0
+
+        if reporniri >= 3:
+            # Buclă de reporniri: serviciul cade imediat (de obicei port
+            # ocupat sau o configurație greșită).
+            widgets["status_dot"].configure(text="●", text_color="#ef4444")
+            widgets["status_badge"].configure(text="ERROR", fg_color="#3a1618", text_color="#fca5a5")
+            widgets["status_label"].configure(text="Ollama nu poate porni", text_color="#f8fafc")
+            widgets["subtitle_label"].configure(
+                text=f"Serviciul a căzut de {reporniri} ori (port ocupat?) — vezi jurnalul",
+                text_color="#fca5a5",
+            )
+            widgets["uptime_value_label"].configure(text="Nu pornește", text_color="#ef4444")
+            widgets["detail_state_value"].configure(text="Eșec repetat", text_color="#fca5a5")
+        else:
+            widgets["status_dot"].configure(text="●", text_color="#f59e0b")
+            widgets["status_badge"].configure(text="STARTING", fg_color="#3a2608", text_color="#fcd34d")
+            widgets["status_label"].configure(text="Ollama se pornește", text_color="#f8fafc")
+            widgets["subtitle_label"].configure(
+                text="Serviciul pornește; pe acest hardware durează ~1 minut",
+                text_color="#f0b44c",
+            )
+            widgets["uptime_value_label"].configure(text="Se pornește...", text_color="#f59e0b")
+            widgets["detail_state_value"].configure(text="Activare în curs", text_color="#fcd34d")
+        widgets["model_label"].configure(text_color="#c4b5fd")
+    elif active_state == "deactivating":
+        widgets["status_dot"].configure(text="●", text_color="#f59e0b")
+        widgets["status_badge"].configure(text="STOPPING", fg_color="#3a2608", text_color="#fcd34d")
+        widgets["status_label"].configure(text="Ollama se oprește", text_color="#f8fafc")
+        widgets["subtitle_label"].configure(text="Serviciul se oprește", text_color="#f0b44c")
+        widgets["uptime_value_label"].configure(text="Se oprește...", text_color="#f59e0b")
+        widgets["detail_state_value"].configure(text="Oprire în curs", text_color="#fcd34d")
+        widgets["model_label"].configure(text_color="#94a3b8")
+    elif active_state == "reloading":
+        widgets["status_dot"].configure(text="●", text_color="#93c5fd")
+        widgets["status_badge"].configure(text="RELOADING", fg_color="#1f2937", text_color="#93c5fd")
+        widgets["status_label"].configure(text="Ollama se reîncarcă", text_color="#f8fafc")
+        widgets["subtitle_label"].configure(text="Serviciul reconfigurează", text_color="#9fb0c7")
+        widgets["uptime_value_label"].configure(text="Se reîncarcă...", text_color="#93c5fd")
+        widgets["detail_state_value"].configure(text="Reîncărcare în curs", text_color="#cbd5e1")
         widgets["model_label"].configure(text_color="#c4b5fd")
     elif active_state == "active":
         widgets["status_dot"].configure(text="●", text_color="#22c55e")
@@ -207,7 +260,8 @@ def incarca_info_ollama_in_fundal(state: AppState, widgets: dict, active_state: 
 
     model_text = obtine_model_activ(active_state)
 
-    if active_state == "active":
+    # Resursele se citesc doar dacă serverul răspunde; altfel nu au sens.
+    if model_text != "Model activ: indisponibil":
         resurse_text = state.resurse_cache
         if _should_refresh(state.last_resource_refresh_monotonic, RESOURCE_REFRESH_MS):
             resurse_text = obtine_consum_resurse()
@@ -220,15 +274,12 @@ def incarca_info_ollama_in_fundal(state: AppState, widgets: dict, active_state: 
 
 
 def programeaza_actualizare_info_ollama(state: AppState, widgets: dict, active_state: str, app) -> None:
-    if active_state != "active":
-        state.selected_model_name = None
-        state.model_activ_cache = "Indisponibil"
-        widgets["model_label"].configure(text=state.model_activ_cache)
-        # Serviciul oprit: niciun model nu se mai încarcă, deci starea
-        # trebuie eliberată, altfel modelul nou nu ar mai apărea niciodată.
-        if state.model_incarcare_in_curs:
-            from ui.main_window import finalizeaza_incarcare_model
-            finalizeaza_incarcare_model(state)
+    # Nu golim eticheta modelului pe baza stării systemd: serverul poate
+    # răspunde corect chiar dacă serviciul este „activating" (pornire lentă
+    # sau repornire). Verificarea de mai jos stabilește realitatea.
+    if active_state != "active" and state.model_incarcare_in_curs:
+        from ui.main_window import finalizeaza_incarcare_model
+        finalizeaza_incarcare_model(state)
 
     with info_lock:
         if state.info_ollama_incarcare:

@@ -15,9 +15,9 @@ Aplicatie desktop Python bazata pe CustomTkinter pentru controlul serviciului lo
 ## Functionalitate
 
 - pornire, oprire si restart pentru serviciul `ollama` prin `systemd` (cu `pkexec`);
-- afisare stare serviciu, substate si uptime;
+- afisare stare serviciu, substate si uptime (inclusiv starile intermediare: se porneste, se opreste, nu poate porni);
 - afisare versiune client Ollama;
-- detectare si monitorizare a modelului activ;
+- detectare si monitorizare a modelului activ prin API-ul HTTP al serverului (`/api/ps`), independent de starea raportata de `systemd`;
 - monitorizare consum RAM si, daca exista GPU NVIDIA, VRAM;
 - incarcare model Ollama cu confirmare reala din backend;
 - buton de copiere pentru numele modelului activ;

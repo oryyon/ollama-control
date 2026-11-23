@@ -18,10 +18,10 @@ Aplicația este dedicată exclusiv Ollama. Nu interacționează cu alte servere 
 ## Ce poate să facă
 
 - Pornește, oprește și repornește serviciul `ollama` prin integrare cu `systemd`.
-- Afișează starea serviciului și detalii despre ultima activare.
+- Afișează starea serviciului și detalii despre ultima activare, inclusiv stările intermediare (pornire, oprire) și avertismentul când serviciul nu poate porni.
 - Arată versiunea Ollama instalată și o compară cu cea mai recentă disponibilă, iar când există una nouă oferă actualizarea direct din interfață.
 - Deschide rapid logul aplicației pentru diagnostic și verificări.
-- Detectează și afișează modelul Ollama activ.
+- Detectează și afișează modelul Ollama activ, consultând direct serverul — modelul apare în panou chiar și în timp ce serviciul se repornește.
 - Copiază în clipboard numele modelului activ, printr-un buton mic cu iconiță de copiere.
 - Descarcă modele noi direct din aplicație, cu bară de progres în octeți, și oferă acces rapid la catalogul de pe ollama.com.
 - Încarcă modele Ollama și confirmă activarea lor înainte de a marca operația ca reușită.

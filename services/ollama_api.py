@@ -120,13 +120,17 @@ def load_model(
     return True, None
 
 
-def modele_incarcate() -> list[str]:
-    """Numele modelelor încărcate acum în memorie."""
+def modele_incarcate_detaliat() -> list[str] | None:
+    """Modelele încărcate acum în memorie, sau `None` dacă serverul nu răspunde.
+
+    Diferența dintre „server inaccesibil” și „serverul e pornit, dar nu are
+    model încărcat” contează: prima situație e o eroare, a doua e normală.
+    """
     try:
         raspuns = _request("/api/ps", timeout=5.0)
     except Exception:
-        logger.exception("Failed to read the list of loaded models")
-        return []
+        logger.debug("Failed to read the list of loaded models", exc_info=True)
+        return None
 
     modele: list[str] = []
     for model in raspuns.get("models", []) or []:
@@ -134,6 +138,11 @@ def modele_incarcate() -> list[str]:
         if nume:
             modele.append(str(nume))
     return modele
+
+
+def modele_incarcate() -> list[str]:
+    """Numele modelelor încărcate acum în memorie."""
+    return modele_incarcate_detaliat() or []
 
 
 def pull_model(
