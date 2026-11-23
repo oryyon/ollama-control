@@ -21,6 +21,20 @@ RESOURCE_REFRESH_MS = 20000
 #: mult; timpul exact depinde de disk și de dimensiunea modelului.
 MODEL_LOAD_BAR_TIMEOUT_SECONDS = 600.0
 
+#: Intervalul verificarii lente, mereu activa. Panoul nu trebuie sa arate
+#: date vechi, nici cand utilizatorul a oprit actualizarea rapida.
+SLOW_REFRESH_MS = 60000
+
+
+def _interval_refresh() -> int:
+    """Intervalul dintre doua reimprospatari, in milisecunde.
+
+    Setarea din aplicatie controleaza ritmul rapid. Cand acesta e oprit,
+    ramane o verificare lenta, o data pe minut.
+    """
+    rapid = app_settings.AUTO_REFRESH_MS
+    return rapid if rapid is not None else SLOW_REFRESH_MS
+
 
 def _incarcare_expirata(state: AppState) -> bool:
     """A expirat timpul de așteptare pentru modelul încărcat?"""
@@ -255,20 +269,23 @@ def auto_refresh(state: AppState, widgets: dict, app) -> None:
     except Exception:
         return
 
-    try:
-        if not app.focus_displayof() and not state.comanda_in_curs:
-            refresh_ms = app_settings.AUTO_REFRESH_MS
-            if refresh_ms is not None:
-                auto_refresh_job = app.after(refresh_ms, lambda: auto_refresh(state, widgets, app))
-            return
-    except Exception:
-        pass
+    interval_ms = _interval_refresh()
+    rapid = app_settings.AUTO_REFRESH_MS is not None
+
+    # La ritmul rapid nu lucram daca fereastra nu are focusul, ca sa nu
+    # consumam resurse in van. La ritmul lent (o data pe minut) verificam
+    # oricum, ca panoul sa nu arate date vechi.
+    if rapid:
+        try:
+            if not app.focus_displayof() and not state.comanda_in_curs:
+                auto_refresh_job = app.after(interval_ms, lambda: auto_refresh(state, widgets, app))
+                return
+        except Exception:
+            pass
 
     if not state.comanda_in_curs:
         actualizeaza_stare(state, widgets, app)
-    refresh_ms = app_settings.AUTO_REFRESH_MS
-    if refresh_ms is not None:
-        auto_refresh_job = app.after(refresh_ms, lambda: auto_refresh(state, widgets, app))
+    auto_refresh_job = app.after(interval_ms, lambda: auto_refresh(state, widgets, app))
 
 
 def programeaza_auto_refresh(app, widgets) -> None:
@@ -286,8 +303,9 @@ def programeaza_auto_refresh(app, widgets) -> None:
             pass
         auto_refresh_job = None
 
-    refresh_ms = app_settings.AUTO_REFRESH_MS
-    if refresh_ms is not None:
-        state = widgets.get("_state")
-        if state:
-            auto_refresh_job = app.after(refresh_ms, lambda: auto_refresh(state, widgets, app))
+    state = widgets.get("_state")
+    if state:
+        auto_refresh_job = app.after(
+            _interval_refresh(),
+            lambda: auto_refresh(state, widgets, app),
+        )

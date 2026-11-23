@@ -56,7 +56,7 @@ def deschide_setari(app, widgets) -> None:
 
     interval_label = ctk.CTkLabel(
         frame,
-        text="Auto-refresh",
+        text="Auto-refresh rapid",
         font=ctk.CTkFont(size=13, weight="bold"),
         text_color="#cbd5e1"
     )
@@ -68,7 +68,14 @@ def deschide_setari(app, widgets) -> None:
         variable=interval_var,
         width=120
     )
-    interval_menu.pack(anchor="w", padx=18, pady=(6, 14))
+    interval_menu.pack(anchor="w", padx=18, pady=(6, 4))
+
+    ctk.CTkLabel(
+        frame,
+        text="Starea și resursele se verifică oricum la 60 de secunde.",
+        font=ctk.CTkFont(size=11),
+        text_color="#64748b"
+    ).pack(anchor="w", padx=18, pady=(0, 12))
 
     confirm_stop_switch = ctk.CTkSwitch(
         frame,

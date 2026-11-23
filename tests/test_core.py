@@ -977,6 +977,34 @@ class ServiceStatusTests(unittest.TestCase):
         self.assertEqual(detalii["active_timestamp"], "")
 
 
+class RefreshIntervalTests(unittest.TestCase):
+    """Panoul trebuie sa se reimprospateze chiar si cu actualizarea rapida off."""
+
+    def test_intervalul_lent_este_folosit_cand_rapidul_e_oprit(self) -> None:
+        from core import state_manager
+
+        original = settings_config.AUTO_REFRESH_MS
+        try:
+            settings_config.AUTO_REFRESH_MS = None
+            self.assertEqual(state_manager._interval_refresh(), state_manager.SLOW_REFRESH_MS)
+
+            settings_config.AUTO_REFRESH_MS = 5000
+            self.assertEqual(state_manager._interval_refresh(), 5000)
+        finally:
+            settings_config.AUTO_REFRESH_MS = original
+
+    def test_timerul_e_Programat_in_tot_always(self) -> None:
+        """Si cu rapidul oprit, se programeaza o verificare lenta."""
+        import inspect
+
+        from core import state_manager
+
+        sursa = inspect.getsource(state_manager.programeaza_auto_refresh)
+        self.assertIn("_interval_refresh()", sursa)
+        # Nu mai exista conditia care sa nu programeze nimic.
+        self.assertNotIn("if refresh_ms is not None:", sursa)
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")
