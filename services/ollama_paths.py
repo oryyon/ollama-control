@@ -19,6 +19,16 @@ from typing import TypedDict
 
 from utils.logging_config import logger
 
+#: Formatele de manifest folosite de Ollama. Versiunile noi scriu în
+#: `manifests-v2/<domeniu>/library/`, iar cele vechi în
+#: `manifests/registry.ollama.ai/library/`. Pe aceeași mașină pot exista
+#: simultan ambele, pentru că formatul nou nu șterge formatul vechi.
+MANIFEST_LAYOUTS = (
+    ("manifests-v2", "ollama.com", "library"),
+    ("manifests", "registry.ollama.ai", "library"),
+)
+
+
 #: Locația implicită pentru instalarea oficială (serviciu systemd, user `ollama`).
 SYSTEM_MODELS_DIR = Path("/usr/share/ollama/.ollama/models")
 
@@ -64,20 +74,20 @@ def _candidati() -> list[Path]:
 def _manifest_pentru(director: Path, model: str) -> Path | None:
     """Calea manifestului unui model în structura Ollama.
 
-    Numele din `ollama list` pot fi `nume:tag` sau doar `nume`. Structura
-    este ``manifests/registry.ollama.ai/library/<nume>/<tag>``.
+    Numele din `ollama list` pot fi `nume:tag` sau doar `nume`. Se caută
+    în toate formatele de manifest (vechi și nou), fiindcă o mașină
+    poate avea simultan modele descărcate cu versiuni diferite de Ollama.
     """
     if ":" in model:
         nume, tag = model.rsplit(":", 1)
     else:
         nume, tag = model, "latest"
 
-    baza = director / "manifests" / "registry.ollama.ai" / "library"
-    candidat = baza / nume / tag
-    if candidat.exists():
-        return candidat
+    for director_manifeste, domeniu, subdirector in MANIFEST_LAYOUTS:
+        candidat = director / director_manifeste / domeniu / subdirector / nume / tag
+        if candidat.exists():
+            return candidat
 
-    # Modelele fără namespace explicit pot fi stocate direct sub `library`.
     return None
 
 

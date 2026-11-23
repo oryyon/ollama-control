@@ -6,6 +6,7 @@ from services.systemd_service import obtine_detalii_serviciu
 from services.ollama_info import normalize_model_name, obtine_versiune_ollama, obtine_model_activ
 from services.resource_monitor import formateaza_uptime, obtine_consum_resurse
 from ui.notifications import arata_notificare
+from utils.logging_config import logger
 import config.settings as app_settings
 
 info_lock = threading.Lock()
@@ -14,6 +15,18 @@ auto_refresh_job: int | None = None
 MIN_SERVICE_REFRESH_MS = 15000
 VERSION_REFRESH_MS = 60000
 RESOURCE_REFRESH_MS = 20000
+
+#: Cât timp (în secunde) poate dura bara de încărcare a modelului înainte
+#: să fie ascunsă oricum. Modelele mari se încarcă lent, dar nu atât de
+#: mult; timpul exact depinde de disk și de dimensiunea modelului.
+MODEL_LOAD_BAR_TIMEOUT_SECONDS = 600.0
+
+
+def _incarcare_expirata(state: AppState) -> bool:
+    """A expirat timpul de așteptare pentru modelul încărcat?"""
+    if not state.model_incarcare_in_curs or not state.model_incarcare_inceput:
+        return False
+    return (time.monotonic() - state.model_incarcare_inceput) > MODEL_LOAD_BAR_TIMEOUT_SECONDS
 
 
 def _service_refresh_ms() -> int:
@@ -77,6 +90,12 @@ def actualizeaza_info_ollama_ui(
     widgets["resurse_label"].configure(text=state.resurse_cache)
 
     if state.model_incarcare_in_curs and state.selected_model_name and normalized_actual_model_name == normalized_selected_model_name:
+        from ui.main_window import ascunde_incarcare_model
+        ascunde_incarcare_model(state, widgets)
+    elif state.model_incarcare_in_curs and _incarcare_expirata(state):
+        # Plasa de siguranță: dacă modelul încărcat nu apare niciodată în
+        # lista serverului, bara nu trebuie să rămână la nesfârșit.
+        logger.info("Hiding the model loading bar: the load took too long")
         from ui.main_window import ascunde_incarcare_model
         ascunde_incarcare_model(state, widgets)
 
@@ -191,6 +210,11 @@ def programeaza_actualizare_info_ollama(state: AppState, widgets: dict, active_s
         state.selected_model_name = None
         state.model_activ_cache = "Indisponibil"
         widgets["model_label"].configure(text=state.model_activ_cache)
+        # Serviciul oprit: niciun model nu se mai încarcă, deci bara de
+        # progres trebuie ascunsă. Altfel rămâne vizibilă la nesfârșit.
+        if state.model_incarcare_in_curs:
+            from ui.main_window import ascunde_incarcare_model
+            ascunde_incarcare_model(state, widgets)
 
     with info_lock:
         if state.info_ollama_incarcare:

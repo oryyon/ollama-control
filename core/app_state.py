@@ -14,6 +14,9 @@ class AppState:
         self.comanda_in_curs: bool = False
         self.info_ollama_incarcare: bool = False
         self.model_incarcare_in_curs: bool = False
+        #: Când a început încărcarea modelului (monotonic). Folosit ca
+        #: plasă de siguranță, ca bara de progres să nu rămână la nesfârșit.
+        self.model_incarcare_inceput: float = 0.0
         self.service_info_incarcare: bool = False
         self.last_service_refresh_monotonic: float = 0.0
         self.last_version_refresh_monotonic: float = 0.0

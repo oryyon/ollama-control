@@ -3,6 +3,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 from services.ollama_api import pull_model
+from ui.context_menu import ataseaza_meniu_contextual
 from utils.logging_config import logger
 
 
@@ -74,6 +75,7 @@ class PullModelDialog:
             text_color=self.TEXT,
         )
         self.model_entry.pack(anchor="w", padx=18, pady=(8, 4))
+        ataseaza_meniu_contextual(self.model_entry)
 
         ctk.CTkLabel(
             frame,

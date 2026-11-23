@@ -724,6 +724,96 @@ class PullProgressTests(unittest.TestCase):
                 os.environ["OLLAMA_HOST"] = original
 
 
+class ContextMenuTests(unittest.TestCase):
+    """Meniul contextual trebuie legat pe widget-ul de text real."""
+
+    def test_se_gaseste_widgetul_de_text_intern(self) -> None:
+        from ui.context_menu import _widget_texte
+
+        class Fals:
+            _entry = "nu-sunt-un-entry"
+
+        camp = Fals()
+        # Fără un Entry intern, se folosește chiar obiectul dat.
+        self.assertIs(_widget_texte(camp), camp)
+
+    def test_meniul_contextual_e_legat_pe_campul_de_text(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "context_menu.py").read_text(encoding="utf-8")
+        self.assertIn('tinta.bind("<Button-3>"', sursa)
+        self.assertIn('tinta.bind("<Button-2>"', sursa)
+        self.assertIn("<<Paste>>", sursa)
+
+    def test_meniul_contextual_e_aplicat_in_campurile_de_text(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        for fisier in ("ui/pull_model_dialog.py", "ui/model_list.py"):
+            sursa = (radacina / fisier).read_text(encoding="utf-8")
+            self.assertIn(
+                "ataseaza_meniu_contextual",
+                sursa,
+                f"{fisier} nu are meniu contextual.",
+            )
+
+
+class LoadingBarTests(unittest.TestCase):
+    """Bara de încărcare nu trebuie să rămână vizibilă la nesfârșit."""
+
+    def test_bara_se_ascunde_cand_serviciul_este_oprit(self) -> None:
+        """Serviciul oprit: niciun model nu se mai încarcă."""
+        import inspect
+
+        from core import state_manager
+
+        sursa = inspect.getsource(state_manager.programeaza_actualizare_info_ollama)
+        self.assertIn("ascunde_incarcare_model", sursa)
+
+    def test_exista_o_plasa_de_siguranta_pentru_timpul_de_asteptare(self) -> None:
+        from core.state_manager import MODEL_LOAD_BAR_TIMEOUT_SECONDS, _incarcare_expirata
+        from core.app_state import AppState
+
+        self.assertGreater(MODEL_LOAD_BAR_TIMEOUT_SECONDS, 0)
+
+        stare = AppState()
+        # Fără încărcare în curs, nu expiră.
+        self.assertFalse(_incarcare_expirata(stare))
+
+        stare.model_incarcare_in_curs = True
+        stare.model_incarcare_inceput = 1.0
+        self.assertTrue(_incarcare_expirata(stare))
+
+        stare.model_incarcare_inceput = 10**12
+        self.assertFalse(_incarcare_expirata(stare))
+
+
+class ManifestLayoutTests(unittest.TestCase):
+    """Manifestele se caută atât în formatul vechi, cât și în cel nou."""
+
+    def test_se_cauta_in_ambele_formate(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from services.ollama_paths import _manifest_pentru
+
+        with tempfile.TemporaryDirectory() as temporar:
+            director = Path(temporar)
+
+            vechi = director / "manifests" / "registry.ollama.ai" / "library" / "qwen3" / "8b"
+            vechi.parent.mkdir(parents=True)
+            vechi.write_text("x")
+
+            nou = director / "manifests-v2" / "ollama.com" / "library" / "bonsai-2" / "9b"
+            nou.parent.mkdir(parents=True)
+            nou.write_text("x")
+
+            self.assertIsNotNone(_manifest_pentru(director, "qwen3:8b"))
+            self.assertIsNotNone(_manifest_pentru(director, "bonsai-2:9b"))
+            self.assertIsNone(_manifest_pentru(director, "inexistent:1b"))
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")

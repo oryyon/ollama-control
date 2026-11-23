@@ -1,6 +1,7 @@
 import tkinter as tk
 import customtkinter as ctk
 import subprocess
+import time
 from pathlib import Path
 
 from config.settings import BASE_DIR, settings, salveaza_setari
@@ -50,12 +51,14 @@ def deschide_log(app, widgets: dict) -> None:
 
 def arata_incarcare_model(state: AppState, widgets: dict, app) -> None:
     state.model_incarcare_in_curs = True
+    state.model_incarcare_inceput = time.monotonic()
     widgets["loading_model_frame"].pack(padx=24, pady=(0, 10), fill="x")
     widgets["loading_model_bar"].start()
 
 
 def ascunde_incarcare_model(state: AppState, widgets: dict) -> None:
     state.model_incarcare_in_curs = False
+    state.model_incarcare_inceput = 0.0
     try:
         widgets["loading_model_bar"].stop()
         widgets["loading_model_frame"].pack_forget()

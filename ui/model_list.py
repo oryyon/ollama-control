@@ -5,6 +5,7 @@ import threading
 
 from core.ollama_models import ModelEntry, get_ollama_models
 from services.ollama_info import normalize_model_name
+from ui.context_menu import ataseaza_meniu_contextual
 from utils.logging_config import logger
 
 
@@ -73,6 +74,7 @@ class ModelList:
             placeholder_text_color=self.SEARCH_ENTRY_PLACEHOLDER,
         )
         self.search_entry.pack(side="left", fill="x", expand=True)
+        ataseaza_meniu_contextual(self.search_entry)
 
     def _build_header(self) -> None:
         header_frame = ctk.CTkFrame(self.parent, fg_color="transparent")
