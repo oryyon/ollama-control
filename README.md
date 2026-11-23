@@ -5,9 +5,7 @@ Aplicatie desktop Python bazata pe CustomTkinter pentru controlul serviciului lo
 ## Documentatie
 
 - [Despre Ollama Control](Despre%20Ollama%20Control) - prezentare generala a aplicatiei si a capabilitatilor principale.
-- [TAURI_RUST_REBUILD_SPEC.md](TAURI_RUST_REBUILD_SPEC.md) - specificatie functionala si tehnica pentru rescrierea proiectului in Tauri + Rust.
-- [CONTINUE_QWEN25_PROMPTING_STRATEGY.md](CONTINUE_QWEN25_PROMPTING_STRATEGY.md) - ghid practic de prompting pentru Continue, optimizat pentru `qwen2.5-coder:7b`.
-- [CONTINUE_TAURI_RUST_PROMPT_PACK.md](CONTINUE_TAURI_RUST_PROMPT_PACK.md) - set complet de prompturi gata de copiat pentru rescrierea Ollama Control in Tauri + Rust.
+
 
 ## Functionalitate
 
@@ -17,6 +15,7 @@ Aplicatie desktop Python bazata pe CustomTkinter pentru controlul serviciului lo
 - detectare si monitorizare a modelului activ;
 - monitorizare consum RAM si, daca exista GPU NVIDIA, VRAM;
 - incarcare model Ollama cu confirmare reala din backend;
+- afisarea versiunii Ollama instalate si a celei mai recente, cu actualizare din aplicatie;
 - bara de progres cu procent real la incarcarea modelului in memorie;
 - eject model activ;
 - afisarea caii de descarcare a modelelor, cu optiune de copiere si deschidere;

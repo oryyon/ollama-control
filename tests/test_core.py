@@ -499,6 +499,56 @@ class OllamaApiTests(unittest.TestCase):
         self.assertIsInstance(modele, list)
 
 
+class OllamaUpdateTests(unittest.TestCase):
+    """Compararea versiunilor Ollama și actualizarea."""
+
+    def test_comparatia_versiunilor(self) -> None:
+        from services.ollama_update import este_versiune_mai_noua
+
+        self.assertTrue(este_versiune_mai_noua("0.40.17", "0.30.6"))
+        self.assertTrue(este_versiune_mai_noua("1.0.0", "0.99.99"))
+        self.assertTrue(este_versiune_mai_noua("0.40.1", "0.40"))
+        self.assertFalse(este_versiune_mai_noua("0.30.6", "0.40.17"))
+        self.assertFalse(este_versiune_mai_noua("0.40.0", "0.40.0"))
+        self.assertFalse(este_versiune_mai_noua("0.40", "0.40.1"))
+        self.assertFalse(este_versiune_mai_noua("", "1.0.0"))
+        self.assertFalse(este_versiune_mai_noua("1.0.0", ""))
+
+    def test_versiunea_instalata_este_un_numar(self) -> None:
+        from services.ollama_update import get_installed_version
+
+        versiune = get_installed_version()
+        self.assertIsInstance(versiune, str)
+        if versiune:
+            self.assertRegex(versiune, r"^\d+\.\d+")
+
+    def test_check_for_update_returneaza_structura_completa(self) -> None:
+        from services.ollama_update import check_for_update
+
+        info = check_for_update()
+        for cheie in ("installed", "latest", "update_available", "error"):
+            self.assertIn(cheie, info)
+        self.assertIsInstance(info["update_available"], bool)
+
+    def test_arhitectura_detectata_e_una_suportata(self) -> None:
+        from services.ollama_update import _arhitectura
+
+        arhitectura = _arhitectura()
+        self.assertIn(arhitectura, ("amd64", "arm64"))
+
+    def test_scriptul_de_instalare_opreste_serviciul(self) -> None:
+        from pathlib import Path
+
+        from services.ollama_update import _script_instalare
+
+        script = _script_instalare(Path("/tmp/extras"), "0.40.17")
+        self.assertIn("systemctl stop ollama", script)
+        self.assertIn("systemctl start ollama", script)
+        self.assertIn("/usr/local/bin/ollama", script)
+        self.assertIn("/usr/local/lib/ollama", script)
+        self.assertIn("0.40.17", script)
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")

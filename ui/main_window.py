@@ -110,6 +110,48 @@ def eject_active_model(state: AppState, widgets: dict, app) -> None:
     eject_model(after_eject)
 
 
+def verifica_versiune_actualizare(widgets: dict) -> None:
+    """Verifică în fundal dacă există o versiune nouă de Ollama.
+
+    Butonul de actualizare apare doar când versiunea disponibilă este mai
+    recentă decât cea instalată.
+    """
+    import threading
+
+    from services.ollama_update import check_for_update
+
+    def angajament() -> None:
+        try:
+            info = check_for_update()
+        except Exception:
+            logger.exception("Failed to check for an Ollama update")
+            return
+
+        def aplica() -> None:
+            try:
+                button = widgets.get("update_button")
+                if button is None:
+                    return
+                if info.get("update_available"):
+                    button.pack(side="left")
+                    logger.info(
+                        "Ollama update available: installed=%s latest=%s",
+                        info.get("installed"),
+                        info.get("latest"),
+                    )
+                else:
+                    button.pack_forget()
+            except Exception:
+                logger.exception("Failed to update the Ollama update button")
+
+        try:
+            widgets["_app"].after(0, aplica)
+        except Exception:
+            pass
+
+    threading.Thread(target=angajament, daemon=True).start()
+
+
 def build_main_window(app) -> tuple[AppState, dict]:
     state = AppState()
 
@@ -151,6 +193,20 @@ def build_main_window(app) -> tuple[AppState, dict]:
     status_widgets = build_status_section(main_frame, ui_uptime_icon, ui_status_icon)
     meta_widgets = build_meta_section(main_frame, ui_model_icon, ui_version_icon)
     buttons_widgets = build_buttons_section(main_frame)
+
+    # Butonul de actualizare Ollama apare când există o versiune nouă.
+    def deschide_actualizare() -> None:
+        from ui.ollama_update_dialog import deschide_dialog_actualizare
+
+        try:
+            deschide_dialog_actualizare(
+                app,
+                on_finished=lambda succes: app.after(0, lambda: verifica_versiune_actualizare(widgets)),
+            )
+        except Exception:
+            logger.exception("Failed to open the Ollama update dialog")
+
+    meta_widgets["update_button"].configure(command=deschide_actualizare)
 
     # Butoane model
     load_model_button = ctk.CTkButton(
@@ -242,7 +298,11 @@ def build_main_window(app) -> tuple[AppState, dict]:
         "load_model_button": load_model_button,
         "eject_button": eject_button,
         "_state": state,
+        "_app": app,
     }
+
+    # Verificarea versiunii noi se face în fundal, la pornire.
+    verifica_versiune_actualizare(widgets)
 
     return state, widgets
 

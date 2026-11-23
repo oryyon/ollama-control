@@ -59,17 +59,36 @@ def build_meta_section(main_frame, ui_model_icon, ui_version_icon) -> dict:
     )
     resurse_label.grid(row=1, column=2, sticky="w", padx=(0, 18), pady=(2, 0))
 
+    # Versiunea și butonul de actualizare stau alături, într-un container.
+    version_box = ctk.CTkFrame(meta_frame, fg_color="transparent")
+    version_box.grid(row=1, column=1, sticky="w", padx=(0, 30), pady=(2, 0))
+
     version_label = ctk.CTkLabel(
-        meta_frame,
+        version_box,
         text="Se verifică versiunea...",
         font=ctk.CTkFont(size=12),
         text_color="#94a3b8"
     )
-    version_label.grid(row=1, column=1, sticky="w", padx=(0, 30), pady=(2, 0))
+    version_label.pack(side="left", padx=(0, 12))
+
+    # Butonul de actualizare apare doar când există o versiune nouă.
+    update_button = ctk.CTkButton(
+        version_box,
+        text="⬆ Actualizează",
+        width=110,
+        height=26,
+        fg_color="#b45309",
+        hover_color="#92400e",
+        font=ctk.CTkFont(size=11, weight="bold"),
+        command=lambda: None,
+    )
+    update_button.pack(side="left")
+    update_button.pack_forget()
 
     return {
         "meta_frame": meta_frame,
         "model_label": model_label,
         "version_label": version_label,
         "resurse_label": resurse_label,
+        "update_button": update_button,
     }
