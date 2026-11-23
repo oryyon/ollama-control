@@ -2,6 +2,11 @@
 
 Aplicatie desktop Python bazata pe CustomTkinter pentru controlul serviciului local Ollama si pentru gestionarea modelelor Ollama.
 
+## Tehnologii
+
+- Python 3.12 + CustomTkinter (interfata grafica)
+- PyInstaller (ambalare in executabil si in pachete `.deb` / AppImage)
+
 ## Documentatie
 
 - [Despre Ollama Control](Despre%20Ollama%20Control) - prezentare generala a aplicatiei si a capabilitatilor principale.

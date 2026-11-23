@@ -49,29 +49,29 @@ def deschide_log(app, widgets: dict) -> None:
         )
 
 
-def arata_incarcare_model(state: AppState, widgets: dict, app) -> None:
+def marcheaza_incarcare_model(state: AppState) -> None:
+    """Marchează modelul ca fiind în curs de încărcare.
+
+    Nu există o bară de progres în fereastra principală: încărcarea se
+    urmărește în fereastra „Modele Ollama", cu procent real. Aici păstrăm
+    doar starea, ca eticheta modelului să nu flutureze spre „niciun model
+    încărcat" cât timp serverul confirmă modelul nou.
+    """
     state.model_incarcare_in_curs = True
     state.model_incarcare_inceput = time.monotonic()
-    widgets["loading_model_frame"].pack(padx=24, pady=(0, 10), fill="x")
-    widgets["loading_model_bar"].start()
 
 
-def ascunde_incarcare_model(state: AppState, widgets: dict) -> None:
+def finalizeaza_incarcare_model(state: AppState) -> None:
+    """Încheie starea de încărcare a modelului."""
     state.model_incarcare_in_curs = False
     state.model_incarcare_inceput = 0.0
-    try:
-        widgets["loading_model_bar"].stop()
-        widgets["loading_model_frame"].pack_forget()
-    except Exception:
-        pass
 
 
 def update_active_model(state: AppState, widgets: dict, model_name: str, app) -> None:
     state.selected_model_name = model_name
     state.model_activ_cache = model_name
-    state.model_incarcare_in_curs = True
     widgets["model_label"].configure(text=model_name)
-    arata_incarcare_model(state, widgets, app)
+    marcheaza_incarcare_model(state)
 
     keepalive = str(settings.get("ollama_keepalive", "10m")).strip() or "10m"
     arata_notificare(
@@ -98,8 +98,7 @@ def eject_active_model(state: AppState, widgets: dict, app) -> None:
 
     def after_eject(success: bool) -> None:
         state.selected_model_name = None
-        state.model_incarcare_in_curs = False
-        ascunde_incarcare_model(state, widgets)
+        finalizeaza_incarcare_model(state)
         if success:
             state.model_activ_cache = "niciun model încărcat"
             widgets["model_label"].configure(text=state.model_activ_cache)

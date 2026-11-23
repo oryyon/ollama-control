@@ -759,17 +759,29 @@ class ContextMenuTests(unittest.TestCase):
             )
 
 
-class LoadingBarTests(unittest.TestCase):
-    """Bara de încărcare nu trebuie să rămână vizibilă la nesfârșit."""
+class LoadingStateTests(unittest.TestCase):
+    """Starea de încărcare a modelului trebuie eliberată corect.
 
-    def test_bara_se_ascunde_cand_serviciul_este_oprit(self) -> None:
-        """Serviciul oprit: niciun model nu se mai încarcă."""
+    Fereastra principală nu mai are o bară de progres; încărcarea se
+    urmărește în fereastra „Modele Ollama". Aici rămâne doar starea,
+    ca eticheta modelului să nu flutureze.
+    """
+
+    def test_fereastra_principala_nu_mai_are_bara_de_loading(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "buttons_section.py").read_text(encoding="utf-8")
+        self.assertNotIn("loading_model_frame", sursa)
+        self.assertNotIn("loading_model_bar", sursa)
+
+    def test_starea_se_elibereaza_la_serviciu_pretit(self) -> None:
         import inspect
 
         from core import state_manager
 
         sursa = inspect.getsource(state_manager.programeaza_actualizare_info_ollama)
-        self.assertIn("ascunde_incarcare_model", sursa)
+        self.assertIn("finalizeaza_incarcare_model", sursa)
 
     def test_exista_o_plasa_de_siguranta_pentru_timpul_de_asteptare(self) -> None:
         from core.state_manager import MODEL_LOAD_BAR_TIMEOUT_SECONDS, _incarcare_expirata
@@ -787,6 +799,19 @@ class LoadingBarTests(unittest.TestCase):
 
         stare.model_incarcare_inceput = 10**12
         self.assertFalse(_incarcare_expirata(stare))
+
+    def test_marcheaza_si_finalizeaza_gestioneaza_doar_starea(self) -> None:
+        from core.app_state import AppState
+        from ui.main_window import finalizeaza_incarcare_model, marcheaza_incarcare_model
+
+        stare = AppState()
+        marcheaza_incarcare_model(stare)
+        self.assertTrue(stare.model_incarcare_in_curs)
+        self.assertGreater(stare.model_incarcare_inceput, 0)
+
+        finalizeaza_incarcare_model(stare)
+        self.assertFalse(stare.model_incarcare_in_curs)
+        self.assertEqual(stare.model_incarcare_inceput, 0.0)
 
 
 class ManifestLayoutTests(unittest.TestCase):

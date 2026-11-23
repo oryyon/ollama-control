@@ -90,14 +90,14 @@ def actualizeaza_info_ollama_ui(
     widgets["resurse_label"].configure(text=state.resurse_cache)
 
     if state.model_incarcare_in_curs and state.selected_model_name and normalized_actual_model_name == normalized_selected_model_name:
-        from ui.main_window import ascunde_incarcare_model
-        ascunde_incarcare_model(state, widgets)
+        from ui.main_window import finalizeaza_incarcare_model
+        finalizeaza_incarcare_model(state)
     elif state.model_incarcare_in_curs and _incarcare_expirata(state):
         # Plasa de siguranță: dacă modelul încărcat nu apare niciodată în
-        # lista serverului, bara nu trebuie să rămână la nesfârșit.
-        logger.info("Hiding the model loading bar: the load took too long")
-        from ui.main_window import ascunde_incarcare_model
-        ascunde_incarcare_model(state, widgets)
+        # lista serverului, starea nu trebuie să rămână blocată.
+        logger.info("Clearing the model loading state: the load took too long")
+        from ui.main_window import finalizeaza_incarcare_model
+        finalizeaza_incarcare_model(state)
 
 
 def randare_stare_serviciu_ui(widgets: dict, detalii: dict[str, str]) -> None:
@@ -210,11 +210,11 @@ def programeaza_actualizare_info_ollama(state: AppState, widgets: dict, active_s
         state.selected_model_name = None
         state.model_activ_cache = "Indisponibil"
         widgets["model_label"].configure(text=state.model_activ_cache)
-        # Serviciul oprit: niciun model nu se mai încarcă, deci bara de
-        # progres trebuie ascunsă. Altfel rămâne vizibilă la nesfârșit.
+        # Serviciul oprit: niciun model nu se mai încarcă, deci starea
+        # trebuie eliberată, altfel modelul nou nu ar mai apărea niciodată.
         if state.model_incarcare_in_curs:
-            from ui.main_window import ascunde_incarcare_model
-            ascunde_incarcare_model(state, widgets)
+            from ui.main_window import finalizeaza_incarcare_model
+            finalizeaza_incarcare_model(state)
 
     with info_lock:
         if state.info_ollama_incarcare:
