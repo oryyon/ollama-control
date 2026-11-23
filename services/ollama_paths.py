@@ -13,7 +13,9 @@ raportate de server, nu doar primul existent.
 """
 
 import os
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import TypedDict
 
@@ -42,6 +44,15 @@ class ModelsDirectoryInfo(TypedDict):
     path: str
     exists: bool
     model_count: int
+
+
+class DuplicateManifest(TypedDict):
+    """Un model prezent în ambele formate de manifest."""
+
+    model: str
+    tag: str
+    old_path: str
+    new_path: str
 
 
 def _din_environment() -> Path | None:
@@ -172,3 +183,140 @@ def get_models_directory_info() -> ModelsDirectoryInfo:
         "exists": exista,
         "model_count": nume_modele,
     }
+
+
+def _baza_layout(director: Path, layout: tuple[str, str, str]) -> Path:
+    director_manifeste, domeniu, subdirector = layout
+    return director / director_manifeste / domeniu / subdirector
+
+
+def find_duplicate_manifests(models_directory: Path) -> list[DuplicateManifest]:
+    """Modelele care există atât în formatul vechi, cât și în cel nou.
+
+    Ollama 0.40.x scrie fiecare model nou în două locuri: în
+    `manifests-v2/<domeniu>/library/` (manifestul propriu-zis, referit
+    printr-un symlink către blob) și în `manifests/<domeniu>/library/` (un
+    înveliș pentru clienții vechi, care indică spre blob).
+
+    Copiile din formatul vechi sunt redundante pentru versiunile noi de
+    Ollama, dar nu pot fi eliminate automat: la descărcare, serverul le
+    scrie din nou.
+    """
+    layout_nou, layout_vechi = MANIFEST_LAYOUTS[0], MANIFEST_LAYOUTS[1]
+    baza_noua = _baza_layout(models_directory, layout_nou)
+    baza_veche = _baza_layout(models_directory, layout_vechi)
+
+    if not baza_noua.is_dir() or not baza_veche.is_dir():
+        return []
+
+    duplicate: list[DuplicateManifest] = []
+    try:
+        modele = sorted(p.name for p in baza_noua.iterdir() if p.is_dir())
+    except OSError:
+        return []
+
+    for model in modele:
+        director_model_nou = baza_noua / model
+        director_model_vechi = baza_veche / model
+        if not director_model_vechi.is_dir():
+            continue
+
+        try:
+            taguri = sorted(p.name for p in director_model_nou.iterdir())
+        except OSError:
+            continue
+
+        for tag in taguri:
+            cale_noua = director_model_nou / tag
+            cale_veche = director_model_vechi / tag
+
+            if not cale_veche.is_file():
+                continue
+            # Noua intrare trebuie să fie un symlink valid către un blob
+            # existent; altfel nu o considerăm o înlocuire sigură.
+            if not cale_noua.is_symlink():
+                continue
+            if not cale_noua.resolve().exists():
+                continue
+
+            duplicate.append({
+                "model": model,
+                "tag": tag,
+                "old_path": str(cale_veche),
+                "new_path": str(cale_noua),
+            })
+
+    return duplicate
+
+
+def _script_curatare(director: Path, duplicate: list[DuplicateManifest]) -> str:
+    """Scriptul de curățare rulat cu privilegii de root."""
+    linii = ["#!/bin/sh", "set -e", ""]
+    for intrare in duplicate:
+        linii.append(f'rm -f "{intrare["old_path"]}"')
+    linii.append("")
+    # Directorii de model rămși goi sunt eliminați.
+    linii.append(f'find "{director / MANIFEST_LAYOUTS[1][0]}" -mindepth 2 -type d -empty -delete 2>/dev/null || true')
+    linii.append("")
+    return "\n".join(linii)
+
+
+def cleanup_duplicate_manifests(
+    models_directory: Path,
+    on_status=None,
+) -> tuple[bool, str | None]:
+    """Elimină copiile redundante din formatul vechi de manifest.
+
+    Se păstrează întotdeauna formatul nou (`manifests-v2`), pentru că
+    serverul Ollama îl preferă, iar blob-urile — datele modelelor — nu
+    sunt atinse deloc.
+    """
+    duplicate = find_duplicate_manifests(models_directory)
+    if not duplicate:
+        mesaj = "Nu există duplicate de eliminat."
+        logger.info("Ollama cleanup: %s", mesaj)
+        return True, mesaj
+
+    if shutil.which("pkexec") is None:
+        return False, "Instrumentul `pkexec` lipsește, deci nu se pot cere privilegii."
+
+    logger.info("Ollama cleanup: removing %d duplicate manifests", len(duplicate))
+
+    director_temporar = Path(tempfile.mkdtemp(prefix="ollama-cleanup-"))
+    try:
+        script = director_temporar / "curata.sh"
+        script.write_text(_script_curatare(models_directory, duplicate), encoding="utf-8")
+        script.chmod(0o755)
+
+        if on_status:
+            on_status(
+                f"Se elimină {len(duplicate)} duplicate de manifest..."
+            )
+
+        rezultat = subprocess.run(
+            ["pkexec", "/bin/sh", str(script)],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+
+        if rezultat.returncode != 0:
+            detaliu = (rezultat.stderr or "").strip()
+            logger.error("Ollama cleanup failed: %s", detaliu)
+            if rezultat.returncode in (126, 127):
+                return False, "Curățarea a fost anulată sau nu ai drepturi suficiente."
+            return False, f"Curățarea a eșuat: {detaliu}"
+
+        ramase = find_duplicate_manifests(models_directory)
+        if ramase:
+            return False, (
+                f"Au rămas {len(ramase)} duplicate. "
+                "Verifică dacă serverul Ollama rulează și încearcă din nou."
+            )
+
+        mesaj = f"Eliminate {len(duplicate)} duplicate de manifest."
+        logger.info("Ollama cleanup: %s", mesaj)
+        return True, mesaj
+    finally:
+        shutil.rmtree(director_temporar, ignore_errors=True)

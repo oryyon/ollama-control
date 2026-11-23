@@ -839,6 +839,98 @@ class ManifestLayoutTests(unittest.TestCase):
             self.assertIsNone(_manifest_pentru(director, "inexistent:1b"))
 
 
+class DuplicateCleanupTests(unittest.TestCase):
+    """Curățarea copiilor de manifest din formatul vechi."""
+
+    def _structura_test(self, director) -> None:
+        """Creează o structură cu un model duplicat și unul doar în v2."""
+        blob = director / "blobs" / "sha256-abc"
+        blob.parent.mkdir(parents=True)
+        blob.write_text("{}")
+
+        baza_noua = director / "manifests-v2" / "ollama.com" / "library"
+        baza_veche = director / "manifests" / "registry.ollama.ai" / "library"
+
+        # Model duplicat: în ambele formate.
+        for baza in (baza_noua, baza_veche):
+            (baza / "duplicat").mkdir(parents=True)
+        (baza_noua / "duplicat" / "latest").symlink_to(blob)
+        (baza_veche / "duplicat" / "latest").write_text("{}")
+
+        # Model doar în formatul nou.
+        (baza_noua / "doar-nou").mkdir(parents=True)
+        (baza_noua / "doar-nou" / "latest").symlink_to(blob)
+
+        # Model doar în formatul vechi.
+        (baza_veche / "doar-vechi").mkdir(parents=True)
+        (baza_veche / "doar-vechi" / "latest").write_text("{}")
+
+    def test_detecteaza_doar_modelele_duplicate(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from services.ollama_paths import find_duplicate_manifests
+
+        with tempfile.TemporaryDirectory() as temporar:
+            director = Path(temporar)
+            self._structura_test(director)
+
+            duplicate = find_duplicate_manifests(director)
+            self.assertEqual(len(duplicate), 1)
+            self.assertEqual(duplicate[0]["model"], "duplicat")
+            self.assertEqual(duplicate[0]["tag"], "latest")
+
+    def test_curatarea_sterge_copiile_si_pastreaza_ambele_formate(self) -> None:
+        import shutil
+        import subprocess
+        import tempfile
+        from pathlib import Path
+
+        from services.ollama_paths import (_script_curatare,
+                                           find_duplicate_manifests)
+
+        with tempfile.TemporaryDirectory() as temporar:
+            director = Path(temporar)
+            self._structura_test(director)
+
+            duplicate = find_duplicate_manifests(director)
+            rezultat = subprocess.run(
+                ["/bin/sh", "-c", _script_curatare(director, duplicate)],
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(rezultat.returncode, 0, rezultat.stderr)
+
+            # Copia veche a modelului duplicat a dispărut.
+            baza_veche = director / "manifests" / "registry.ollama.ai" / "library"
+            self.assertFalse((baza_veche / "duplicat" / "latest").exists())
+
+            # Formatul nou rămâne neatins.
+            baza_noua = director / "manifests-v2" / "ollama.com" / "library"
+            self.assertTrue((baza_noua / "duplicat" / "latest").is_symlink())
+            self.assertTrue((baza_noua / "doar-nou" / "latest").is_symlink())
+
+            # Modelul existent doar în formatul vechi nu a fost atins.
+            self.assertTrue((baza_veche / "doar-vechi" / "latest").exists())
+
+            # Blob-urile nu sunt atinse.
+            self.assertTrue((director / "blobs" / "sha256-abc").exists())
+
+            self.assertEqual(find_duplicate_manifests(director), [])
+
+    def test_curatarea_e_ignorata_cand_nu_sunt_duplicate(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from services.ollama_paths import cleanup_duplicate_manifests
+
+        with tempfile.TemporaryDirectory() as temporar:
+            director = Path(temporar)
+            succes, mesaj = cleanup_duplicate_manifests(director)
+            self.assertTrue(succes)
+            self.assertIn("Nu există", str(mesaj))
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")
