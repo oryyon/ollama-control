@@ -931,6 +931,52 @@ class DuplicateCleanupTests(unittest.TestCase):
             self.assertIn("Nu există", str(mesaj))
 
 
+class ServiceStatusTests(unittest.TestCase):
+    """Starea serviciului se citeste intr-un singur apel `systemctl show`."""
+
+    def test_se_uses_un_singur_apel_systemctl(self) -> None:
+        import inspect
+
+        from services import systemd_service
+
+        sursa = inspect.getsource(systemd_service.obtine_detalii_serviciu)
+        self.assertIn(
+            "ActiveState,SubState,ActiveEnterTimestamp",
+            systemd_service._PROPRIETATI_SERVICIU,
+        )
+        # Niciun apel separat pentru fiecare proprietate.
+        self.assertNotIn('"is-active"', sursa)
+
+    def test_parseaza_proprietatile_sistemd(self) -> None:
+        from unittest.mock import patch
+
+        from services import systemd_service
+
+        iesire = (
+            "ActiveState=active\n"
+            "SubState=running\n"
+            "ActiveEnterTimestamp=Sun 2026-11-23 10:00:00 UTC\n"
+        )
+        with patch.object(systemd_service, "ruleaza_si_citeste", return_value=iesire):
+            detalii = systemd_service.obtine_detalii_serviciu()
+
+        self.assertEqual(detalii["active_state"], "active")
+        self.assertEqual(detalii["sub_state"], "running")
+        self.assertEqual(detalii["active_timestamp"], "Sun 2026-11-23 10:00:00 UTC")
+
+    def test_iesire_goala_da_valori_implicite(self) -> None:
+        from unittest.mock import patch
+
+        from services import systemd_service
+
+        with patch.object(systemd_service, "ruleaza_si_citeste", return_value=""):
+            detalii = systemd_service.obtine_detalii_serviciu()
+
+        self.assertEqual(detalii["active_state"], "necunoscut")
+        self.assertEqual(detalii["sub_state"], "necunoscut")
+        self.assertEqual(detalii["active_timestamp"], "")
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")
