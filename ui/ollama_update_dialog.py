@@ -55,12 +55,13 @@ class OllamaUpdateDialog:
             text_color=self.TEXT,
         ).pack(anchor="w", padx=18, pady=(16, 4))
 
-        ctk.CTkLabel(
+        self.verificare_label = ctk.CTkLabel(
             frame,
             text="Se verifică versiunile disponibile...",
             font=ctk.CTkFont(size=12),
             text_color=self.MUTED,
-        ).pack(anchor="w", padx=18)
+        )
+        self.verificare_label.pack(anchor="w", padx=18)
 
         self.versiuni_frame = ctk.CTkFrame(frame, fg_color="transparent")
         self.versiuni_frame.pack(anchor="w", padx=18, pady=(14, 0))
@@ -131,6 +132,8 @@ class OllamaUpdateDialog:
             command=self._actualizeaza,
             state=tk.DISABLED,
         )
+        self.actualizeaza_button.pack(side="left")
+
     def _verifica(self) -> None:
         """Verifică versiunile în fundal."""
         def angajament() -> None:
@@ -143,6 +146,10 @@ class OllamaUpdateDialog:
         instalata = info.get("installed") or "necunoscută"
         latest = info.get("latest") or "necunoscută"
 
+        self.verificare_label.configure(
+            text="Versiunile disponibile au fost verificate.",
+            text_color=self.MUTED,
+        )
         self.version_instalata_label.configure(text=f"Versiune instalată: {instalata}")
         self.version_latest_label.configure(text=f"Ultima versiune: {latest}")
 

@@ -549,6 +549,48 @@ class OllamaUpdateTests(unittest.TestCase):
         self.assertIn("0.40.17", script)
 
 
+class UpdateDialogLayoutTests(unittest.TestCase):
+    """Dialogul de actualizare trebuie să arate butonul de acțiune.
+
+    Butonul poate fi creat corect și totuși să nu fie afișat, dacă nu este
+    adăugat în ierarhia de widget-uri. Verificăm deci pachetarea lui.
+    """
+
+    def test_butonul_de_actualizare_este_pachetat(self) -> None:
+        import ast
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "ollama_update_dialog.py").read_text(encoding="utf-8")
+        arbore = ast.parse(sursa)
+
+        apeluri: list[str] = []
+        for nod in ast.walk(arbore):
+            if not isinstance(nod, ast.Call):
+                continue
+            functie = nod.func
+            if not isinstance(functie, ast.Attribute):
+                continue
+            if functie.attr == "pack" and isinstance(functie.value, ast.Attribute):
+                if functie.value.attr == "actualizeaza_button":
+                    apeluri.append("pack")
+
+        self.assertIn(
+            "pack",
+            apeluri,
+            "Butonul de actualizare nu este adăugat în ierarhia de widget-uri, "
+            "deci nu va fi vizibil.",
+        )
+
+    def test_dialogul_are_eticheta_de_verificare(self) -> None:
+        import ast
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "ollama_update_dialog.py").read_text(encoding="utf-8")
+        self.assertIn("verificare_label", sursa)
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")
