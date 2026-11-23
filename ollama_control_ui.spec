@@ -15,6 +15,7 @@ a = Analysis(
         ('ui_status.png', '.'),
         ('ui_model.png', '.'),
         ('ui_version.png', '.'),
+        ('ui_copy.png', '.'),
     ],
     hiddenimports=['PIL', 'PIL._tkinter_finder'],
     hookspath=[],

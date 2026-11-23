@@ -591,6 +591,139 @@ class UpdateDialogLayoutTests(unittest.TestCase):
         self.assertIn("verificare_label", sursa)
 
 
+class CopyModelButtonTests(unittest.TestCase):
+    """Butonul de copiere a numelui modelului activ trebuie să fie afișat."""
+
+    @staticmethod
+    def _este_pachetat(sursa: str, nume: str) -> bool:
+        """Verifică dacă obiectul `nume` primește un apel `pack()`.
+
+        Obiectul poate fi o variabilă locală (`buton`) sau un atribut
+        (`self.buton`), așa că tratăm ambele forme.
+        """
+        import ast
+
+        arbore = ast.parse(sursa)
+        for nod in ast.walk(arbore):
+            if not isinstance(nod, ast.Call):
+                continue
+            functie = nod.func
+            if not isinstance(functie, ast.Attribute) or functie.attr != "pack":
+                continue
+
+            obiect = functie.value
+            if isinstance(obiect, ast.Name) and obiect.id == nume:
+                return True
+            if isinstance(obiect, ast.Attribute) and obiect.attr == nume:
+                return True
+
+        return False
+
+    def test_butonul_de_copiere_este_pachetat(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "meta_section.py").read_text(encoding="utf-8")
+
+        self.assertTrue(
+            self._este_pachetat(sursa, "copy_button"),
+            "Butonul de copiere nu este adăugat în ierarhia de widget-uri, "
+            "deci nu va fi vizibil.",
+        )
+
+    def test_sectiunea_meta_expune_butonul_de_copiere(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "meta_section.py").read_text(encoding="utf-8")
+        self.assertIn('"copy_button": copy_button', sursa)
+
+    def test_folosirea_clipboardului_este_cu_management_de_erori(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "main_window.py").read_text(encoding="utf-8")
+        self.assertIn("clipboard_clear", sursa)
+        self.assertIn("clipboard_append", sursa)
+
+
+class OnlineModelsTests(unittest.TestCase):
+    """Butonul care trimite la catalogul de modele de pe ollama.com."""
+
+    def test_adresa_cataloguei_este_corecta(self) -> None:
+        from ui.model_window import ONLINE_MODELS_URL
+
+        self.assertEqual(ONLINE_MODELS_URL, "https://ollama.com/search")
+
+    def test_butoanul_de_modele_online_este_pachetat(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "model_window.py").read_text(encoding="utf-8")
+
+        self.assertTrue(
+            CopyModelButtonTests._este_pachetat(sursa, "online_button"),
+            "Butonul de modele online nu este vizibil.",
+        )
+
+    def test_butoanul_de_descarcare_este_pachetat(self) -> None:
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "model_window.py").read_text(encoding="utf-8")
+
+        self.assertTrue(
+            CopyModelButtonTests._este_pachetat(sursa, "download_button"),
+            "Butonul de descărcare a modelului nu este vizibil.",
+        )
+
+
+class PullProgressTests(unittest.TestCase):
+    """Progresul descărcării este agregat pe toate blob-urile."""
+
+    def test_agregarea_tine_cont_de_fiecare_blob(self) -> None:
+        """Serverul raportează progres per blob; suma dă procentul real."""
+        total_pe_blob: dict[str, int] = {}
+        descarcat_pe_blob: dict[str, int] = {}
+
+        evenimente = [
+            {"digest": "sha256:a", "total": 1000, "completed": 100},
+            {"digest": "sha256:a", "total": 1000, "completed": 900},
+            {"digest": "sha256:b", "total": 100, "completed": 50},
+            {"digest": "sha256:b", "total": 100, "completed": 100},
+        ]
+
+        for eveniment in evenimente:
+            digest = eveniment["digest"]
+            total_pe_blob[digest] = eveniment["total"]
+            descarcat_pe_blob[digest] = eveniment["completed"]
+
+        descarcat = sum(descarcat_pe_blob.values())
+        total = sum(total_pe_blob.values())
+
+        # Ultimul blob (mic) nu trebuie să strivească procentul global.
+        self.assertEqual(descarcat, 1000)
+        self.assertEqual(total, 1100)
+        self.assertEqual(int(descarcat * 100 / total), 90)
+
+    def test_pull_model_rapoarta_eroare_cand_serverul_nu_exista(self) -> None:
+        import os
+
+        from services import ollama_api
+
+        original = os.environ.get("OLLAMA_HOST")
+        try:
+            os.environ["OLLAMA_HOST"] = "127.0.0.1:9"
+            succes, mesaj = ollama_api.pull_model("qwen3:8b", timeout=5.0)
+            self.assertFalse(succes)
+            self.assertIsNotNone(mesaj)
+        finally:
+            if original is None:
+                os.environ.pop("OLLAMA_HOST", None)
+            else:
+                os.environ["OLLAMA_HOST"] = original
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")

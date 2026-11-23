@@ -1,7 +1,7 @@
 import customtkinter as ctk
 
 
-def build_meta_section(main_frame, ui_model_icon, ui_version_icon) -> dict:
+def build_meta_section(main_frame, ui_model_icon, ui_version_icon, ui_copy_icon=None) -> dict:
     """Construiește secțiunea meta (model activ, versiune, resurse, butoane model)."""
     meta_frame = ctk.CTkFrame(
         main_frame,
@@ -43,13 +43,32 @@ def build_meta_section(main_frame, ui_model_icon, ui_version_icon) -> dict:
     )
     resurse_title.grid(row=0, column=2, sticky="w", padx=(0, 18), pady=(14, 0))
 
+    # Numele modelului activ și butonul de copiere stau alături.
+    model_box = ctk.CTkFrame(meta_frame, fg_color="transparent")
+    model_box.grid(row=1, column=0, sticky="w", padx=(18, 24), pady=(2, 0))
+
     model_label = ctk.CTkLabel(
-        meta_frame,
+        model_box,
         text="Se verifică...",
         font=ctk.CTkFont(size=13, weight="bold"),
         text_color="#c4b5fd"
     )
-    model_label.grid(row=1, column=0, sticky="w", padx=(18, 24), pady=(2, 0))
+    model_label.pack(side="left", padx=(0, 8))
+
+    # Buton mic cu iconița de copiere, pentru numele modelului activ.
+    copy_button = ctk.CTkButton(
+        model_box,
+        text="",
+        image=ui_copy_icon,
+        width=24,
+        height=24,
+        corner_radius=6,
+        fg_color="transparent",
+        hover_color="#1e293b",
+        border_width=0,
+        command=lambda: None,
+    )
+    copy_button.pack(side="left")
 
     resurse_label = ctk.CTkLabel(
         meta_frame,
@@ -91,4 +110,5 @@ def build_meta_section(main_frame, ui_model_icon, ui_version_icon) -> dict:
         "version_label": version_label,
         "resurse_label": resurse_label,
         "update_button": update_button,
+        "copy_button": copy_button,
     }

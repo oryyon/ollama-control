@@ -134,3 +134,92 @@ def modele_incarcate() -> list[str]:
         if nume:
             modele.append(str(nume))
     return modele
+
+
+def pull_model(
+    model: str,
+    on_progress=None,
+    on_status=None,
+    timeout: float = 3600.0,
+) -> tuple[bool, str | None]:
+    """Descarcă un model din registry-ul Ollama.
+
+    Serverul trimite un eveniment NDJSON pentru fiecare bucată descărcată,
+    cu `completed` și `total` în octeți — de aici vine progresul real.
+
+    `on_progress(descarcat, total)` primește octeții descărcați și totalul
+    (0 când serverul nu anunță dimensiunea). `on_status(mesaj)` primește
+    mesaje de stare pentru interfață.
+    """
+    corp = {"model": model, "stream": True}
+
+    logger.info("Pulling model from the Ollama registry: model=%s", model)
+
+    adresa = f"{_host()}/api/pull"
+    date = json.dumps(corp).encode("utf-8")
+    cerere = urllib.request.Request(
+        adresa,
+        data=date,
+        headers={"Content-Type": "application/json"},
+    )
+
+    ultima_stare = ""
+    # Progresul vine per blob (fiecare layer are suma lui), deci îl
+    # agregăm: altfel ultimul blob, adesea mic, ar strica procentul.
+    total_pe_blob: dict[str, int] = {}
+    descarcat_pe_blob: dict[str, int] = {}
+
+    def progres_global() -> tuple[int, int]:
+        return sum(descarcat_pe_blob.values()), sum(total_pe_blob.values())
+
+    try:
+        with urllib.request.urlopen(cerere, timeout=timeout) as raspuns:
+            for linie in raspuns:
+                text = linie.decode("utf-8", errors="ignore").strip()
+                if not text:
+                    continue
+
+                try:
+                    eveniment = json.loads(text)
+                except json.JSONDecodeError:
+                    continue
+
+                if "error" in eveniment:
+                    mesaj = f"Ollama a raportat o eroare: {eveniment['error']}"
+                    logger.error("Ollama pull failed for %s: %s", model, eveniment["error"])
+                    return False, mesaj
+
+                stare = str(eveniment.get("status") or "")
+                if stare and stare != ultima_stare:
+                    ultima_stare = stare
+                    logger.info("Ollama pull status: %s", stare)
+                    if on_status:
+                        on_status(stare)
+
+                digest = str(eveniment.get("digest") or "")
+                total = int(eveniment.get("total") or 0)
+                descarcat = int(eveniment.get("completed") or 0)
+
+                if digest and total > 0:
+                    total_pe_blob[digest] = total
+                    descarcat_pe_blob[digest] = descarcat
+                    global_descarcat, global_total = progres_global()
+                    if on_progress:
+                        on_progress(global_descarcat, global_total)
+    except urllib.error.HTTPError as e:
+        mesaj = f"Serverul Ollama a refuzat descărcarea (HTTP {e.code})."
+        logger.error("Ollama pull failed for %s: %s", model, mesaj)
+        return False, mesaj
+    except urllib.error.URLError as e:
+        mesaj = (
+            f"Nu se poate contacta serverul Ollama pentru descărcare. "
+            f"Verifică dacă serviciul este pornit. ({e.reason})"
+        )
+        logger.error("Ollama pull unreachable for %s: %s", model, e.reason)
+        return False, mesaj
+    except Exception as e:
+        logger.exception("Unexpected error while pulling the model %s", model)
+        return False, f"Eroare la descărcarea modelului '{model}': {e}"
+
+    logger.info("Model pulled successfully: model=%s", model)
+    return True, None

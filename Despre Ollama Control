@@ -22,6 +22,8 @@ Aplicația este dedicată exclusiv Ollama. Nu interacționează cu alte servere 
 - Arată versiunea Ollama instalată și o compară cu cea mai recentă disponibilă, iar când există una nouă oferă actualizarea direct din interfață.
 - Deschide rapid logul aplicației pentru diagnostic și verificări.
 - Detectează și afișează modelul Ollama activ.
+- Copiază în clipboard numele modelului activ, printr-un buton mic cu iconiță de copiere.
+- Descarcă modele noi direct din aplicație, cu bară de progres în octeți, și oferă acces rapid la catalogul de pe ollama.com.
 - Încarcă modele Ollama și confirmă activarea lor înainte de a marca operația ca reușită.
 - Afișează o bară de progres cu procentul real al modelului încărcat în memorie, împreună cu volumul citit de pe disc și viteza de încărcare.
 - Ejectează modelul activ direct din interfață.

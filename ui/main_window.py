@@ -110,6 +110,38 @@ def eject_active_model(state: AppState, widgets: dict, app) -> None:
     eject_model(after_eject)
 
 
+def copiaza_nume_model(state: AppState, widgets: dict, app) -> None:
+    """Copiază în clipboard numele modelului activ."""
+    nume = state.model_activ_cache or state.selected_model_name or ""
+
+    fara_model = ("", "Se verifică...", "Indisponibil", "niciun model încărcat", "—")
+    if not nume or nume in fara_model:
+        arata_notificare(
+            "Niciun model activ de copiat",
+            "warning", app, widgets["notification_frame"], widgets["notification_label"],
+        )
+        return
+
+    try:
+        app.clipboard_clear()
+        app.clipboard_append(nume)
+        # X11 are nevoie de un ciclu de evenimente ca textul să rămână
+        # în clipboard după ce fereastra își pierde focusul.
+        app.update_idletasks()
+    except Exception:
+        logger.exception("Failed to copy the active model name to the clipboard")
+        arata_notificare(
+            "Nu s-a putut copia numele modelului",
+            "error", app, widgets["notification_frame"], widgets["notification_label"],
+        )
+        return
+
+    arata_notificare(
+        f"Nume copiat: {nume}",
+        "success", app, widgets["notification_frame"], widgets["notification_label"],
+    )
+
+
 def verifica_versiune_actualizare(widgets: dict) -> None:
     """Verifică în fundal dacă există o versiune nouă de Ollama.
 
@@ -160,6 +192,7 @@ def build_main_window(app) -> tuple[AppState, dict]:
     ui_status_icon = incarca_imagine_ctk("ui_status.png", (16, 16))
     ui_model_icon = incarca_imagine_ctk("ui_model.png", (18, 18))
     ui_version_icon = incarca_imagine_ctk("ui_version.png", (18, 18))
+    ui_copy_icon = incarca_imagine_ctk("ui_copy.png", (16, 16))
     try:
         app.iconphoto(True, tk.PhotoImage(file=icon_path))
     except Exception:
@@ -191,7 +224,7 @@ def build_main_window(app) -> tuple[AppState, dict]:
     subtitle_top.pack(pady=(0, 12))
 
     status_widgets = build_status_section(main_frame, ui_uptime_icon, ui_status_icon)
-    meta_widgets = build_meta_section(main_frame, ui_model_icon, ui_version_icon)
+    meta_widgets = build_meta_section(main_frame, ui_model_icon, ui_version_icon, ui_copy_icon)
     buttons_widgets = build_buttons_section(main_frame)
 
     # Butonul de actualizare Ollama apare când există o versiune nouă.
@@ -207,6 +240,11 @@ def build_main_window(app) -> tuple[AppState, dict]:
             logger.exception("Failed to open the Ollama update dialog")
 
     meta_widgets["update_button"].configure(command=deschide_actualizare)
+
+    # Butonul de copiere preia numele modelului activ din stare.
+    meta_widgets["copy_button"].configure(
+        command=lambda: copiaza_nume_model(state, widgets, app)
+    )
 
     # Butoane model
     load_model_button = ctk.CTkButton(

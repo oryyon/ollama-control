@@ -1,10 +1,13 @@
 import threading
 import time
 import tkinter as tk
+import webbrowser
 import customtkinter as ctk
 import weakref
 
 from ui.model_list import ModelList
+from ui.model_path_dialog import ModelPathDialog
+from ui.pull_model_dialog import PullModelDialog
 from ui.model_actions import (
     set_active_model_callback,
     eject_model,
@@ -19,6 +22,9 @@ from services.ollama_info import normalize_model_name, obtine_model_activ
 from utils.logging_config import logger
 
 _open_model_windows: weakref.WeakSet = weakref.WeakSet()
+
+#: Pagina cu catalogul de modele de pe site-ul oficial Ollama.
+ONLINE_MODELS_URL = "https://ollama.com/search"
 
 
 def notify_model_loader_active_model(model_name: str | None) -> None:
@@ -41,6 +47,10 @@ class ModelWindow:
     CANCEL_BUTTON_HOVER = ("#dc2626", "#b91c1c")
     PATH_BUTTON_FG = ("#0f766e", "#115e59")
     PATH_BUTTON_HOVER = ("#0d9488", "#0f766e")
+    DOWNLOAD_BUTTON_FG = ("#15803d", "#166534")
+    DOWNLOAD_BUTTON_HOVER = ("#16a34a", "#15803d")
+    ONLINE_BUTTON_FG = ("#4f46e5", "#4338ca")
+    ONLINE_BUTTON_HOVER = ("#6366f1", "#4f46e5")
     BUTTON_TEXT = ("#ffffff", "#ffffff")
     BUTTON_DISABLED_FG = ("#cbd5e1", "#334155")
     BUTTON_DISABLED_TEXT = ("#64748b", "#94a3b8")
@@ -106,6 +116,28 @@ class ModelWindow:
         )
         self.path_button.pack(side="left", padx=10)
 
+        self.download_button = ctk.CTkButton(
+            switch,
+            text="⬇ Descarcă model",
+            fg_color=self.DOWNLOAD_BUTTON_FG,
+            hover_color=self.DOWNLOAD_BUTTON_HOVER,
+            text_color=self.BUTTON_TEXT,
+            text_color_disabled=self.BUTTON_DISABLED_TEXT,
+            command=self._show_pull_model
+        )
+        self.download_button.pack(side="left", padx=10)
+
+        self.online_button = ctk.CTkButton(
+            switch,
+            text="🌐 Modele online",
+            fg_color=self.ONLINE_BUTTON_FG,
+            hover_color=self.ONLINE_BUTTON_HOVER,
+            text_color=self.BUTTON_TEXT,
+            text_color_disabled=self.BUTTON_DISABLED_TEXT,
+            command=self._open_online_models
+        )
+        self.online_button.pack(side="left", padx=10)
+
         self.cancel_button = ctk.CTkButton(
             switch,
             text="Închide",
@@ -163,11 +195,36 @@ class ModelWindow:
         except Exception:
             logger.exception("Failed to open the models path dialog")
 
+    def _show_pull_model(self) -> None:
+        """Deschide dialogul pentru descărcarea unui model nou."""
+        logger.info("Model Loader: user requested the model download dialog")
+        try:
+            PullModelDialog(self.win, on_finished=self._on_model_pulled)
+        except Exception:
+            logger.exception("Failed to open the model download dialog")
+
+    def _on_model_pulled(self, succes: bool) -> None:
+        """Reîmprospătează lista după o descărcare reușită."""
+        if succes:
+            self.load_models()
+
+    def _open_online_models(self) -> None:
+        """Deschide pagina de modele de pe ollama.com în browser."""
+        logger.info("Model Loader: opening the online model catalogue")
+        try:
+            webbrowser.open(ONLINE_MODELS_URL, new=2)
+        except Exception:
+            logger.exception("Failed to open the online model catalogue")
+
     def _set_buttons_enabled(self, enabled: bool) -> None:
         if enabled:
             self._apply_mode_button_states()
             self._style_button(self.path_button, self.PATH_BUTTON_FG, self.PATH_BUTTON_HOVER, self.BUTTON_TEXT)
             self.path_button.configure(state=tk.NORMAL)
+            self._style_button(self.download_button, self.DOWNLOAD_BUTTON_FG, self.DOWNLOAD_BUTTON_HOVER, self.BUTTON_TEXT)
+            self.download_button.configure(state=tk.NORMAL)
+            self._style_button(self.online_button, self.ONLINE_BUTTON_FG, self.ONLINE_BUTTON_HOVER, self.BUTTON_TEXT)
+            self.online_button.configure(state=tk.NORMAL)
             self._style_button(self.cancel_button, self.CANCEL_BUTTON_FG, self.CANCEL_BUTTON_HOVER, self.BUTTON_TEXT)
             self.cancel_button.configure(state=tk.NORMAL)
         else:
@@ -175,6 +232,10 @@ class ModelWindow:
             self.source_button.configure(state=tk.DISABLED)
             self._style_button(self.path_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
             self.path_button.configure(state=tk.DISABLED)
+            self._style_button(self.download_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
+            self.download_button.configure(state=tk.DISABLED)
+            self._style_button(self.online_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
+            self.online_button.configure(state=tk.DISABLED)
             self._style_button(self.cancel_button, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_FG, self.BUTTON_DISABLED_TEXT)
             self.cancel_button.configure(state=tk.DISABLED)
 
