@@ -1057,6 +1057,92 @@ class RefreshIntervalTests(unittest.TestCase):
         self.assertNotIn("if refresh_ms is not None:", sursa)
 
 
+class SettingsWindowLayoutTests(unittest.TestCase):
+    """Fereastra de setări trebuie să-și măsoare înălțimea după conținut.
+
+    Înălțimea fixă de 580 px tăia butoanele „Anulează” și „Salvează”
+    imediat ce lista de modele recente avea trei intrări.
+    """
+
+    def test_inaltime_se_calculeaza_dupa_conținut(self) -> None:
+        from ui.settings_window import calculeaza_inaltime
+
+        # Conținut scurt: fereastra rămâne mică.
+        self.assertEqual(calculeaza_inaltime(380, 1080), 420)
+
+        # Conținut cu trei modele recente: fereastra se întinde exact cât trebuie.
+        self.assertEqual(calculeaza_inaltime(598, 1080), 598)
+
+        # Ecran mic: nu se depășește ecranul.
+        self.assertEqual(calculeaza_inaltime(900, 600), 520)
+
+    def test_inaltime_nu_taie_butoanele(self) -> None:
+        """Înălțimea aleasă trebuie să acopere conținutul măsurat."""
+        from ui.settings_window import calculeaza_inaltime
+
+        for necesar in (380, 480, 562, 598, 640, 700):
+            for ecran in (1080, 900, 768):
+                self.assertGreaterEqual(
+                    calculeaza_inaltime(necesar, ecran),
+                    min(necesar, ecran - 80),
+                )
+
+    def test_fereastra_nu_mai_are_inaltime_fixa(self) -> None:
+        """Nu mai există o înălțime fixă, care ar tăia butoanele."""
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "settings_window.py").read_text(encoding="utf-8")
+        self.assertNotIn("420x580", sursa)
+        self.assertIn("calculeaza_inaltime", sursa)
+
+    def test_dimensionarea_se_aplica_dupa_crearea_widgeturilor(self) -> None:
+        """Măsurarea trebuie să fie ultima, după toate widget-urile."""
+        import ast
+        from pathlib import Path
+
+        def ultimul_apel(nod: ast.FunctionDef) -> ast.Call | None:
+            """Ultimul apel din corpul funcției, dacă există."""
+            ultima = nod.body[-1]
+            if isinstance(ultima, ast.Expr) and isinstance(ultima.value, ast.Call):
+                return ultima.value
+            return None
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "settings_window.py").read_text(encoding="utf-8")
+        arbore = ast.parse(sursa)
+
+        for nod in ast.walk(arbore):
+            if not isinstance(nod, ast.FunctionDef) or nod.name != "deschide_setari":
+                continue
+
+            apeluri: list[str] = []
+            for sub in ast.walk(nod):
+                if not isinstance(sub, ast.Call):
+                    continue
+                if isinstance(sub.func, ast.Name):
+                    apeluri.append(sub.func.id)
+                elif isinstance(sub.func, ast.Attribute):
+                    apeluri.append(sub.func.attr)
+
+            self.assertIn("_ajusteaza_dimensiunile", apeluri)
+            self.assertIn("pack", apeluri)
+
+            # Ultima instrucțiune a funcției trebuie să fie dimensionarea:
+            # măsurarea e validă doar după ce toate widget-urile există.
+            apel = ultimul_apel(nod)
+            self.assertIsNotNone(apel, "Funcția nu se termină cu un apel.")
+            assert apel is not None
+            nume = apel.func
+            self.assertTrue(
+                isinstance(nume, ast.Name) and nume.id == "_ajusteaza_dimensiunile",
+                "Dimensionarea ferestrei trebuie să fie ultima operație.",
+            )
+            return
+
+        self.fail("Funcția deschide_setari nu a fost găsită.")
+
+
 class HelperTests(unittest.TestCase):
     def test_format_size(self) -> None:
         self.assertEqual(format_size(None), "N/A")

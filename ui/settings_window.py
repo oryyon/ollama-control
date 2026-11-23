@@ -14,6 +14,20 @@ def _is_valid_keepalive(value: str) -> bool:
     return is_valid_keepalive(value)
 
 
+def _centraza_fereastra(fereastra: ctk.CTkToplevel, app, latime: int, inaltime: int) -> None:
+    """Așază fereastra pe centrul ferestrei principale (sau al ecranului)."""
+    try:
+        if app is not None and app.winfo_width() > 1 and app.winfo_height() > 1:
+            x = app.winfo_rootx() + (app.winfo_width() - latime) // 2
+            y = app.winfo_rooty() + (app.winfo_height() - inaltime) // 2
+        else:
+            x = (fereastra.winfo_screenwidth() - latime) // 2
+            y = (fereastra.winfo_screenheight() - inaltime) // 2
+        fereastra.geometry(f"{latime}x{inaltime}+{max(x, 0)}+{max(y, 0)}")
+    except Exception:
+        fereastra.geometry(f"{latime}x{inaltime}")
+
+
 def deschide_setari(app, widgets) -> None:
     global settings_window
 
@@ -23,8 +37,6 @@ def deschide_setari(app, widgets) -> None:
 
     settings_window = ctk.CTkToplevel(app)
     settings_window.title("Setări")
-    settings_window.geometry("420x580")
-    settings_window.resizable(False, False)
     settings_window.configure(fg_color="#0f172a")
     settings_window.transient(app)
     settings_window.lift()
@@ -235,3 +247,44 @@ def deschide_setari(app, widgets) -> None:
         command=salveaza_din_ui
     )
     save_button.pack(side="left")
+
+    _ajusteaza_dimensiunile(settings_window, frame, app)
+
+
+#: Înălțimea minimă a ferestrei de setări.
+INALTIME_MINIMA = 420
+
+#: Cât lăsăm liber pe ecran (bara de activități, margini).
+SPAZIU_PENTRU_ECRAN = 80
+
+
+def calculeaza_inaltime(necesar: int, ecran_inaltime: int) -> int:
+    """Înălțimea ferestrei: cât cere conținutul, dar nu mai mult decât ecranul.
+
+    Înălțimea fixă de 580 px tăia butoanele „Anulează” și „Salvează” imediat
+    ce lista de modele recente avea trei intrări. Fereastra se măsoară acum
+    după conținutul real, iar pe ecrane mici rămâne derulabilă prin limita
+    impusă aici.
+    """
+    return max(INALTIME_MINIMA, min(necesar, ecran_inaltime - SPAZIU_PENTRU_ECRAN))
+
+
+def _ajusteaza_dimensiunile(fereastra: ctk.CTkToplevel, frame, app) -> None:
+    """Dimensionează fereastra după conținutul real."""
+    latime = 420
+    try:
+        fereastra.update_idletasks()
+        frame.update_idletasks()
+
+        # Frame-ul e lipit cu padx=18, pady=18, deci marginea de sus și de
+        # jos se adaugă la înălțimea cerută a conținutului.
+        necesar = frame.winfo_reqheight() + 36
+        inaltime = calculeaza_inaltime(necesar, fereastra.winfo_screenheight())
+
+        fereastra.resizable(False, False)
+        _centraza_fereastra(fereastra, app, latime, inaltime)
+    except Exception:
+        try:
+            fereastra.geometry(f"420x{calculeaza_inaltime(620, fereastra.winfo_screenheight())}")
+        except Exception:
+            pass
