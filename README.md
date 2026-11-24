@@ -1,11 +1,17 @@
 # Ollama Control
 
+![Licenta](https://img.shields.io/badge/licenta-MIT-blue.svg)
+![Python](https://img.shields.io/badge/python-3.12-3776ab.svg)
+![Platforma](https://img.shields.io/badge/platforma-Linux-lightgrey.svg)
+![Ultima versiune](https://img.shields.io/github/v/release/oryyon/ollama-control?label=release)
+
 Aplicatie desktop Python bazata pe CustomTkinter pentru controlul serviciului local Ollama si pentru gestionarea modelelor Ollama.
 
 ## Tehnologii
 
 - Python 3.12 + CustomTkinter (interfata grafica)
 - PyInstaller (ambalare in executabil si in pachete `.deb` / AppImage)
+- API-ul HTTP al serverului Ollama (fara dependenta de CLI pentru detectarea modelului activ)
 
 ## Documentatie
 
@@ -34,6 +40,7 @@ Aplicatie desktop Python bazata pe CustomTkinter pentru controlul serviciului lo
 
 ## Instalare din pachete prebuilt
 
+Pachetele se descarca de la [pagina Releases](https://github.com/oryyon/ollama-control/releases).
 Ambele variante folosesc acelasi executabil si includ toate dependintele Python.
 
 ### Pachet Debian / Ubuntu (.deb)
@@ -99,3 +106,39 @@ sau ruleaza dintr-un AppImage. La prima pornire, setarile din vechea locatie
 
 Suita include si o garda de regresie care verifica faptul ca proiectul
 nu mai contine functionalitati sau mentiuni ale aplicatiei eliminate.
+
+Verificarea de tipuri ruleaza cu Pyright:
+
+```bash
+npx pyright
+```
+
+## Licenta
+
+Ollama Control este distribuit sub licenta [MIT](LICENSE).
+
+```
+Copyright (c) 2026 Pirnog Dorin
+```
+
+Daca folosesti aplicatia sau codul sursa, un link catre acest repository
+si o mentiune a autorului sunt apreciate, dar nu sunt obligatorii.
+
+## Contribuție
+
+Contributiile sunt binevenite. Pentru o propunere de functionalitate,
+deschide o issue cu descrierea si cazul de utilizare; pentru o corectura,
+trimite un pull request.
+
+Inainte de a trimite, ruleaza testele si verificarea de tipuri:
+
+```bash
+./venv/bin/python -m unittest discover -s tests
+npx pyright
+```
+
+## Proiecte conexe
+
+- [Alterna](https://github.com/oryyon/Alterna) - aplicatie desktop Linux pentru
+  descoperirea de alternative software.
+

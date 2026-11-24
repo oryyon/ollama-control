@@ -1,0 +1,27 @@
+- name: bug
+  description: Eroare în aplicație
+  color: "D73A4A"
+
+- name: functionalitate
+  description: Propunere de funcționalitate nouă
+  color: "0E8A16"
+
+- name: documentatie
+  description: Îmbunătățire a documentației
+  color: "0075CA"
+
+- name: distributie
+  description: Build, packaging și lansare
+  color: "C5DEF5"
+
+- name: interfata
+  description: Aspect și comportament al interfeței grafice
+  color: "BFDADC"
+
+- name: intretinere
+  description: Curățare, refactorizare, actualizări de dependențe
+  color: "D4C5F9"
+
+- name: bine-venit
+  description: Pentru prima participare
+  color: "FBCA04"

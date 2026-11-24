@@ -43,3 +43,11 @@ Aplicația este livrată în două forme, ambele cu toate dependințele incluse:
 ## Cui îi este utilă
 
 Ollama Control este utilă pentru utilizatori care rulează modele locale și au nevoie de o interfață desktop clară pentru operare curentă, testare, monitorizare și administrare rapidă a fluxului Ollama fără comenzi repetitive în terminal.
+
+## Licență
+
+Aplicația este distribuită sub licența MIT. Textul complet se găsește în fișierul `LICENSE` din repository-ul proiectului.
+
+Copyright (c) 2026 Pirnog Dorin
+
+Sursa este disponibilă public la https://github.com/oryyon/ollama-control

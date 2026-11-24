@@ -30,4 +30,5 @@ mesaje
 
 # Instrumente și configurări locale
 .continue/
-.vscode/
+.vscode/*
+!.vscode/settings.json

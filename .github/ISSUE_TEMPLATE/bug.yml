@@ -1,0 +1,69 @@
+name: Raportare de eroare
+description: Semnaleaza o eroare sau un comportament neasteptat
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Multumesc pentru raportare. Te rugam sa completezi informatiile de mai jos,
+        deoarece ajuta la reproducerea problemei.
+
+  - type: textarea
+    id: ce-se-intampla
+    attributes:
+      label: Ce se intampla?
+      description: Descrie comportamentul observat.
+      placeholder: La deschiderea ferestrei Setari, butonul Salveaza este acoperit.
+    validations:
+      required: true
+
+  - type: textarea
+    id: pasi
+    attributes:
+      label: Pasi pentru reproducere
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: asteptat
+    attributes:
+      label: Ce te-ai astepta sa se intample?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: distributie
+    attributes:
+      label: Cum rulezi aplicatia?
+      options:
+        - Pachet .deb
+        - AppImage
+        - Din sursa (start.sh)
+    validations:
+      required: true
+
+  - type: input
+    id: versiune
+    attributes:
+      label: Versiunea aplicatiei
+      placeholder: 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: sistem
+    attributes:
+      label: Sistem
+      description: Distributie, versiune de Python, versiune de Ollama.
+      placeholder: Kubuntu 24.04, Python 3.12, Ollama 0.40.17
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Jurnal relevant
+      description: Continutul din ~/.ollama_control_ui/app.log, daca este cazul.
+      render: shell

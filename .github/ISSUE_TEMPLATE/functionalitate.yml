@@ -1,0 +1,26 @@
+name: Propunere de functionalitate
+description: Sugereaza o functionalitate noua sau o imbunatatire
+labels: ["functionalitate"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema sau nevoia
+      description: Ce te impiedica sa faci ce trebuie acum?
+      placeholder: Nu pot vedea care model ruleaza in memorie fara sa deschid fereastra Modele.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solutie
+    attributes:
+      label: Solutia propusa
+      description: Cum ar arata functionalitatea dorita?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternative
+    attributes:
+      label: Alternative considerate
+      description: Ce ai incercat deja si nu ti-a ajutat?
