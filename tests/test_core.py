@@ -873,6 +873,8 @@ class LoadingStateTests(unittest.TestCase):
         self.assertIn("finalizeaza_incarcare_model", sursa)
 
     def test_exista_o_plasa_de_siguranta_pentru_timpul_de_asteptare(self) -> None:
+        import time
+
         from core.state_manager import MODEL_LOAD_BAR_TIMEOUT_SECONDS, _incarcare_expirata
         from core.app_state import AppState
 
@@ -882,9 +884,17 @@ class LoadingStateTests(unittest.TestCase):
         # Fără încărcare în curs, nu expiră.
         self.assertFalse(_incarcare_expirata(stare))
 
+        # Referința de timp se calculează din ceasul curent: un moment
+        # fixat (ex.: 1.0) ar face testul dependent de vechimea mașinii —
+        # pe un runner proaspăt, `time.monotonic()` este încă mic.
+        acum = time.monotonic()
+
         stare.model_incarcare_in_curs = True
-        stare.model_incarcare_inceput = 1.0
+        stare.model_incarcare_inceput = acum - MODEL_LOAD_BAR_TIMEOUT_SECONDS - 1
         self.assertTrue(_incarcare_expirata(stare))
+
+        stare.model_incarcare_inceput = acum
+        self.assertFalse(_incarcare_expirata(stare))
 
         stare.model_incarcare_inceput = 10**12
         self.assertFalse(_incarcare_expirata(stare))
