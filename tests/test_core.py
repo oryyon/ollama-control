@@ -1097,16 +1097,69 @@ class SettingsWindowLayoutTests(unittest.TestCase):
         self.assertIn("calculeaza_inaltime", sursa)
 
     def test_dimensionarea_se_aplica_dupa_crearea_widgeturilor(self) -> None:
-        """Măsurarea trebuie să fie ultima, după toate widget-urile."""
+        """Măsurarea trebuie să urmeze crearea tuturor widget-urilor."""
         import ast
         from pathlib import Path
 
-        def ultimul_apel(nod: ast.FunctionDef) -> ast.Call | None:
-            """Ultimul apel din corpul funcției, dacă există."""
-            ultima = nod.body[-1]
-            if isinstance(ultima, ast.Expr) and isinstance(ultima.value, ast.Call):
-                return ultima.value
-            return None
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "settings_window.py").read_text(encoding="utf-8")
+        arbore = ast.parse(sursa)
+
+        for nod in ast.walk(arbore):
+            if not isinstance(nod, ast.FunctionDef) or nod.name != "deschide_setari":
+                continue
+
+            linii_pack: list[int] = []
+            linie_dimensionare: int | None = None
+            linie_deiconify: int | None = None
+
+            for sub in ast.walk(nod):
+                if not isinstance(sub, ast.Call):
+                    continue
+                if isinstance(sub.func, ast.Attribute):
+                    nume = sub.func.attr
+                elif isinstance(sub.func, ast.Name):
+                    nume = sub.func.id
+                else:
+                    continue
+
+                if nume == "pack":
+                    linii_pack.append(sub.lineno)
+                elif nume == "_ajusteaza_dimensiunile":
+                    linie_dimensionare = sub.lineno
+                elif nume == "deiconify":
+                    linie_deiconify = sub.lineno
+
+            self.assertTrue(linii_pack, "Nu s-au găsit widget-uri împachetate.")
+            self.assertIsNotNone(linie_dimensionare, "Fereastra nu este dimensionată.")
+            self.assertIsNotNone(linie_deiconify, "Fereastra nu este făcută vizibilă.")
+            assert linie_dimensionare is not None
+            assert linie_deiconify is not None
+
+            self.assertLess(
+                max(linii_pack),
+                linie_dimensionare,
+                "Dimensionarea trebuie să urmeze după crearea widget-urilor.",
+            )
+            self.assertLess(
+                linie_dimensionare,
+                linie_deiconify,
+                "Fereastra poate fi făcută vizibilă doar după dimensionare.",
+            )
+            return
+
+        self.fail("Funcția deschide_setari nu a fost găsită.")
+
+    def test_fereastra_ramane_ascunsa_pana_la_final(self) -> None:
+        """Fereastra nu trebuie să „crească” în pași sub ochii utilizatorului.
+
+        Fiecare widget adăugat unei ferestre vizibile forțează o redesenare,
+        așa că utilizatorul vedea o succesiune de stări intermediare. Fereastra
+        e ascunsă (`withdraw`) cât timp e construită și apare o singură dată
+        (`deiconify`), după dimensionare.
+        """
+        import ast
+        from pathlib import Path
 
         radacina = Path(__file__).resolve().parent.parent
         sursa = (radacina / "ui" / "settings_window.py").read_text(encoding="utf-8")
@@ -1125,22 +1178,39 @@ class SettingsWindowLayoutTests(unittest.TestCase):
                 elif isinstance(sub.func, ast.Attribute):
                     apeluri.append(sub.func.attr)
 
-            self.assertIn("_ajusteaza_dimensiunile", apeluri)
-            self.assertIn("pack", apeluri)
-
-            # Ultima instrucțiune a funcției trebuie să fie dimensionarea:
-            # măsurarea e validă doar după ce toate widget-urile există.
-            apel = ultimul_apel(nod)
-            self.assertIsNotNone(apel, "Funcția nu se termină cu un apel.")
-            assert apel is not None
-            nume = apel.func
-            self.assertTrue(
-                isinstance(nume, ast.Name) and nume.id == "_ajusteaza_dimensiunile",
-                "Dimensionarea ferestrei trebuie să fie ultima operație.",
-            )
+            self.assertIn("withdraw", apeluri, "Fereastra trebuie ascunsă în timpul construcției.")
+            self.assertIn("deiconify", apeluri, "Fereastra trebuie făcută vizibilă la final.")
             return
 
         self.fail("Funcția deschide_setari nu a fost găsită.")
+
+    def test_geometria_se_aplica_inainte_de_afisare(self) -> None:
+        """Dimensiunile trebuie fixate înainte ca fereastra să devină vizibilă.
+
+        Altfel fereastra apare cu lățimea implicită (350 px) și se extinde
+        abia după — un salt vizibil.
+        """
+        import ast
+        from pathlib import Path
+
+        radacina = Path(__file__).resolve().parent.parent
+        sursa = (radacina / "ui" / "settings_window.py").read_text(encoding="utf-8")
+        arbore = ast.parse(sursa)
+
+        for nod in ast.walk(arbore):
+            if not isinstance(nod, ast.FunctionDef) or nod.name != "_ajusteaza_dimensiunile":
+                continue
+
+            apeluri = [
+                sub.func.attr
+                for sub in ast.walk(nod)
+                if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute)
+            ]
+            self.assertIn("update_idletasks", apeluri)
+            self.assertIn("geometry", apeluri)
+            return
+
+        self.fail("Funcția _ajusteaza_dimensiunile nu a fost găsită.")
 
 
 class HelperTests(unittest.TestCase):

@@ -39,8 +39,13 @@ def deschide_setari(app, widgets) -> None:
     settings_window.title("Setări")
     settings_window.configure(fg_color="#0f172a")
     settings_window.transient(app)
-    settings_window.lift()
-    settings_window.focus_force()
+
+    # Fereastra rămâne ascunsă cât timp o construim. Altfel, fiecare widget
+    # adăugat forțează o redesenare, iar utilizatorul vede o succesiune de
+    # stări intermediare (fereastra „crește” în pași) — apoi încă o
+    # redimensionare la final. Cu `withdraw`, fereastra apare o singură
+    # dată, deja cu geometria corectă.
+    settings_window.withdraw()
 
     frame = ctk.CTkFrame(
         settings_window,
@@ -250,6 +255,11 @@ def deschide_setari(app, widgets) -> None:
 
     _ajusteaza_dimensiunile(settings_window, frame, app)
 
+    # Abia acum arată fereastra: o singură apariție, cu dimensiunea finală.
+    settings_window.deiconify()
+    settings_window.lift()
+    settings_window.focus_force()
+
 
 #: Înălțimea minimă a ferestrei de setări.
 INALTIME_MINIMA = 420
@@ -283,8 +293,14 @@ def _ajusteaza_dimensiunile(fereastra: ctk.CTkToplevel, frame, app) -> None:
 
         fereastra.resizable(False, False)
         _centraza_fereastra(fereastra, app, latime, inaltime)
+
+        # Geometria se aplică asincron: fără acest pas fereastra ar apărea
+        # mai întâi cu lățimea implicită (350 px) și abia apoi s-ar extinde
+        # la 420 px — un salt vizibil înainte de afișare.
+        fereastra.update_idletasks()
     except Exception:
         try:
             fereastra.geometry(f"420x{calculeaza_inaltime(620, fereastra.winfo_screenheight())}")
+            fereastra.update_idletasks()
         except Exception:
             pass
