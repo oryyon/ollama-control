@@ -18,7 +18,8 @@ from ui.model_path_dialog import ModelPathDialog
 from core.model_config import create_model_with_context_threaded
 from core.ollama_models import delete_ollama_model
 from config.settings import settings
-from services.ollama_info import normalize_model_name, obtine_model_activ
+from services.ollama_info import (este_fara_model, normalize_model_name,
+                                   obtine_model_activ)
 from utils.logging_config import logger
 
 _open_model_windows: weakref.WeakSet = weakref.WeakSet()
@@ -259,7 +260,7 @@ class ModelWindow:
             return
 
         active_name = normalize_model_name(model_text.split(":", 1)[1].strip())
-        if active_name in ("", "indisponibil", "niciun model încărcat", "runner detectat"):
+        if este_fara_model(active_name):
             self.sync_active_model_indicator(None)
             return
 

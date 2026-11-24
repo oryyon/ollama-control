@@ -6,9 +6,10 @@ from typing import Callable
 from config.settings import KEEPALIVE_DEFAULT, is_valid_keepalive, settings
 from core.ollama_models import _parse_size_to_gb, get_ollama_models
 from services.ollama_api import load_model
-from services.ollama_info import (normalize_model_name, obtine_model_activ,
-                                   obtine_modelele_activate, _log_active_model_once,
-                                   _log_no_active_model_once)
+from services.ollama_info import (MODEL_NEINCARCAT, SERVER_INDISPONIBIL,
+                                   este_fara_model, normalize_model_name,
+                                   obtine_model_activ, obtine_modelele_activate,
+                                   _log_active_model_once, _log_no_active_model_once)
 from utils.logging_config import logger
 
 active_model_callback: Callable[[str], None] | None = None
@@ -60,7 +61,7 @@ def eject_model(callback: Callable[[bool], None] | None = None) -> None:
 
     logger.info("Eject requested. detected_model=%s normalized=%s", active_name or "<none>", active_name_normalized or "<none>")
 
-    if active_name and active_name not in ("indisponibil", "niciun model încărcat", "runner detectat"):
+    if active_name and not este_fara_model(active_name):
         try:
             result = subprocess.run(
                 ["ollama", "stop", active_name_normalized or active_name],
@@ -103,11 +104,11 @@ def _is_expected_model_active(name: str) -> tuple[bool, str]:
     """
     modele = obtine_modelele_activate()
     if modele is None:
-        return False, "Model activ: indisponibil"
+        return False, f"Model activ: {SERVER_INDISPONIBIL}"
 
     if not modele:
         _log_no_active_model_once()
-        return False, "Model activ: niciun model încărcat"
+        return False, f"Model activ: {MODEL_NEINCARCAT}"
 
     asteptat = normalize_model_name(name)
     for activ in modele:

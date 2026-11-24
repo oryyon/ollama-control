@@ -3,7 +3,9 @@ import time
 
 from core.app_state import AppState
 from services.systemd_service import obtine_detalii_serviciu
-from services.ollama_info import normalize_model_name, obtine_versiune_ollama, obtine_model_activ
+from services.ollama_info import (este_fara_model, este_necunoscut,
+                                   normalize_model_name, obtine_versiune_ollama,
+                                   obtine_model_activ)
 from services.resource_monitor import formateaza_uptime, obtine_consum_resurse
 from ui.notifications import arata_notificare
 from utils.logging_config import logger
@@ -92,10 +94,7 @@ def actualizeaza_info_ollama_ui(
 
     # Valori care înseamnă „nu știm încă" — se compară fără diferențiere
     # de majuscule, fiindcă textul vine din mai multe locuri.
-    necunoscut = actual_model_name.strip().lower() in (
-        "se verifică...", "se verifica...", "indisponibil", "niciun model încărcat",
-        "niciun model incarcat", "—",
-    )
+    necunoscut = este_necunoscut(actual_model_name)
 
     if state.model_incarcare_in_curs and state.selected_model_name and necunoscut:
         state.model_activ_cache = state.selected_model_name
@@ -261,7 +260,7 @@ def incarca_info_ollama_in_fundal(state: AppState, widgets: dict, active_state: 
     model_text = obtine_model_activ(active_state)
 
     # Resursele se citesc doar dacă serverul răspunde; altfel nu au sens.
-    if model_text != "Model activ: indisponibil":
+    if not este_fara_model(model_text):
         resurse_text = state.resurse_cache
         if _should_refresh(state.last_resource_refresh_monotonic, RESOURCE_REFRESH_MS):
             resurse_text = obtine_consum_resurse()

@@ -135,7 +135,7 @@ class ActiveModelDetectionTests(unittest.TestCase):
                 self.assertIn("lfm3-audio:latest", text, f"stare={stare}")
 
     def test_server_neaccesibil_este_diferit_de_fara_model(self) -> None:
-        """Server inaccesibil → „indisponibil”; server gol → „niciun model”."""
+        """Server inaccesibil → „Server indisponibil”; server gol → „Neîncărcat”."""
         from services.ollama_info import obtine_model_activ
 
         with patch.object(ollama_info, "modele_incarcate_detaliat", return_value=None):
@@ -146,7 +146,44 @@ class ActiveModelDetectionTests(unittest.TestCase):
 
         with patch.object(ollama_info, "modele_incarcate_detaliat", return_value=[]):
             text = obtine_model_activ("active")
-        self.assertIn("niciun model", text.lower())
+        self.assertIn("neîncărcat", text.lower())
+
+    def test_textele_pentru_model_sunt_diferite(self) -> None:
+        """Cele două stări trebuie să aibă texte distincte și clare.
+
+        „Server indisponibil” înseamnă că serverul nu răspunde (serviciu
+        oprit), iar „Neîncărcat” că serverul merge, dar nu are model în
+        memorie. Textul ambiguu „Indisponibil” lăsa utilizatorul să
+        creadă că lipsește modelul, când de fapt serverul era oprit.
+        """
+        from services.ollama_info import (MODEL_NEINCARCAT, SERVER_INDISPONIBIL,
+                                           este_fara_model, este_necunoscut)
+
+        self.assertNotEqual(MODEL_NEINCARCAT, SERVER_INDISPONIBIL)
+        self.assertTrue(este_fara_model(MODEL_NEINCARCAT))
+        self.assertTrue(este_fara_model(SERVER_INDISPONIBIL))
+        self.assertTrue(este_necunoscut(MODEL_NEINCARCAT))
+        self.assertTrue(este_necunoscut(SERVER_INDISPONIBIL))
+
+    def test_comparatiile_sunt_ignorate_cazul(self) -> None:
+        """„Indisponibil” și „indisponibil” trebuie recunoscute identic.
+
+        Regresie: verificările din interfață comparau cu „Indisponibil”
+        (I mare), iar valoarea reală era „indisponibil” (mic) — condiția
+        nu se îndeplinea niciodată, iar butonul de copiere copia literal
+        textul afișat.
+        """
+        from services.ollama_info import (SERVER_INDISPONIBIL, este_fara_model,
+                                           este_necunoscut)
+
+        for varianta in (SERVER_INDISPONIBIL, SERVER_INDISPONIBIL.lower(),
+                         SERVER_INDISPONIBIL.upper()):
+            self.assertTrue(este_fara_model(varianta), varianta)
+            self.assertTrue(este_necunoscut(varianta), varianta)
+
+        self.assertTrue(este_fara_model("Indisponibil"))
+        self.assertTrue(este_fara_model("indisponibil"))
+        self.assertTrue(este_fara_model(""))
 
     def test_modelul_al_doilea_rand_e_recunoscut_ca_activ(self) -> None:
         """Regresie: modelul nou se încărca, dar aplicația raporta eșec.

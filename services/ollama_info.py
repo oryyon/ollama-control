@@ -7,6 +7,49 @@ _last_logged_service_state: str | None = None
 _last_logged_active_model: str | None = None
 _active_model_timeout_logged: bool = False
 
+#: Textul afișat când serverul Ollama nu răspunde deloc (serviciul e oprit
+#: sau inaccesibil). E deliberat diferit de „Neîncărcat”: acolo serverul
+#: funcționează, doar nu ține model în memorie.
+SERVER_INDISPONIBIL = "Server indisponibil"
+
+#: Textul afișat când serverul e pornit, dar nu are model în memorie.
+MODEL_NEINCARCAT = "Neîncărcat"
+
+#: Valorile care înseamnă „nu există model activ”.
+_VALORI_FARA_MODEL = frozenset({
+    MODEL_NEINCARCAT.lower(),
+    SERVER_INDISPONIBIL.lower(),
+    "indisponibil",  # valoarea veche, păstrată pentru compatibilitate
+    "runner detectat",
+    "",
+})
+
+#: Valorile care înseamnă „nu știm încă” (serverul nu a răspuns, sau încă
+#: verificăm).
+_VALORI_NECUNOSCUTE = frozenset({
+    "se verifică...",
+    "se verifica...",
+    "—",
+    "",
+    MODEL_NEINCARCAT.lower(),
+    SERVER_INDISPONIBIL.lower(),
+})
+
+
+def este_fara_model(text: str) -> bool:
+    """Indică textul absența unui model activ?
+
+    Comparația e fără diferențiere de majuscule: textul vine din mai multe
+    locuri, iar altfel „Indisponibil” nu s-ar potrivi niciodată cu
+    „indisponibil” — verificarea trecea neobservată.
+    """
+    return (text or "").strip().lower() in _VALORI_FARA_MODEL
+
+
+def este_necunoscut(text: str) -> bool:
+    """Indică textul că încă nu știm care este modelul activ?"""
+    return (text or "").strip().lower() in _VALORI_NECUNOSCUTE
+
 
 def _log_service_state_once(active_state: str) -> None:
     global _last_logged_service_state, _active_model_timeout_logged
@@ -87,11 +130,11 @@ def obtine_model_activ(active_state: str) -> str:
         return f"Model activ: {modele[0]}"
     if modele is not None:
         _log_no_active_model_once()
-        return "Model activ: niciun model încărcat"
+        return f"Model activ: {MODEL_NEINCARCAT}"
 
     # Serverul nu răspunde deloc — starea systemd explică de ce.
     _log_service_state_once(active_state)
-    return "Model activ: indisponibil"
+    return f"Model activ: {SERVER_INDISPONIBIL}"
 
 
 def obtine_modelele_activate() -> list[str] | None:
@@ -99,8 +142,9 @@ def obtine_modelele_activate() -> list[str] | None:
 
     Sursa primară este API-ul HTTP (`/api/ps`), nu CLI-ul: comanda
     `ollama ps` se blochează cât timp serverul e ocupat (pornire lentă sau
-    încărcare de model) și produce „Model activ: indisponibil” deși modelul
-    era încărcat corect. API-ul răspunde imediat și dă același rezultat.
+    încărcare de model) și produce „Model activ: Server indisponibil”
+    deși modelul era încărcat corect. API-ul răspunde imediat și dă
+    același rezultat.
 
     `ollama ps` poate afișa mai multe modele simultan — cu un keepalive lung
     (ex.: 6h), modelul vechi rămâne în memorie, iar cel nou se adaugă

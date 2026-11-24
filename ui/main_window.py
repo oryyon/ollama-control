@@ -6,6 +6,8 @@ from pathlib import Path
 
 from config.settings import BASE_DIR, settings, salveaza_setari
 from core.app_state import AppState
+from services.ollama_info import (MODEL_NEINCARCAT, este_fara_model,
+                                   este_necunoscut)
 from ui.notifications import arata_notificare
 from ui.status_section import build_status_section
 from ui.meta_section import build_meta_section
@@ -92,7 +94,9 @@ def update_active_model(state: AppState, widgets: dict, model_name: str, app) ->
 
 
 def eject_active_model(state: AppState, widgets: dict, app) -> None:
-    if not state.selected_model_name and state.model_activ_cache in ("Se verifică...", "Indisponibil", "niciun model încărcat"):
+    if not state.selected_model_name and (
+        este_fara_model(state.model_activ_cache) or este_necunoscut(state.model_activ_cache)
+    ):
         arata_notificare("Niciun model activ de ejectat", "warning", app, widgets["notification_frame"], widgets["notification_label"])
         return
 
@@ -100,7 +104,7 @@ def eject_active_model(state: AppState, widgets: dict, app) -> None:
         state.selected_model_name = None
         finalizeaza_incarcare_model(state)
         if success:
-            state.model_activ_cache = "niciun model încărcat"
+            state.model_activ_cache = MODEL_NEINCARCAT
             widgets["model_label"].configure(text=state.model_activ_cache)
             from ui.model_window import notify_model_loader_active_model
             notify_model_loader_active_model(None)
@@ -116,8 +120,7 @@ def copiaza_nume_model(state: AppState, widgets: dict, app) -> None:
     """Copiază în clipboard numele modelului activ."""
     nume = state.model_activ_cache or state.selected_model_name or ""
 
-    fara_model = ("", "Se verifică...", "Indisponibil", "niciun model încărcat", "—")
-    if not nume or nume in fara_model:
+    if not nume or este_fara_model(nume) or este_necunoscut(nume):
         arata_notificare(
             "Niciun model activ de copiat",
             "warning", app, widgets["notification_frame"], widgets["notification_label"],
